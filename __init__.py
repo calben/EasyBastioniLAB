@@ -34,6 +34,9 @@ from . import humanoid, animationengine, proxyengine
 import time
 import logging
 
+#new imports - EasyBastioniLAB
+import bpy.utils.previews
+
 #import cProfile, pstats, io
 #import faulthandler
 #faulthandler.enable()
@@ -292,7 +295,7 @@ def femalepose_update(self, context):
     filepath = os.path.join(
         mblab_retarget.femaleposes_path,
         "".join([armature.female_pose, ".json"]))
-    mblab_retarget.load_pose(filepath, use_retarget = True)  
+    mblab_retarget.load_pose(filepath, use_retarget = True)
 
 
 def init_morphing_props(humanoid_instance):
@@ -549,24 +552,24 @@ bpy.types.Scene.mblab_character_name = bpy.props.EnumProperty(
     default="f_ca01")
 
 bpy.types.Scene.mblab_assets_models = bpy.props.EnumProperty(
-    items=mblab_proxy.assets_models,    
+    items=mblab_proxy.assets_models,
     name="Assets library")
-    
+
 # bpy.types.Scene.mblab_transfer_weights = bpy.props.BoolProperty(
     # name="Transfer rigging",
     # description="Transfers the weights from the body to fitted element, adding an armature modifier",
     # default = True)
-    
+
 # bpy.types.Scene.mblab_overwrite_weights = bpy.props.BoolProperty(
     # name="Replace existing weights",
     # description="If the element has already rigging weights, they will be replaced with the weights projected from the character body",
-    # default = False)  
-    
+    # default = False)
+
 bpy.types.Scene.mblab_overwrite_proxy_weights = bpy.props.BoolProperty(
     name="Replace existing proxy weights",
     description="If the proxy has already rigging weights, they will be replaced with the weights projected from the character body",
-    default = False)  
-    
+    default = False)
+
 bpy.types.Scene.mblab_save_images_and_backup = bpy.props.BoolProperty(
     name="Save images and backup character",
     description="Save all images from the skin shader and backup the character in json format",
@@ -650,6 +653,40 @@ bpy.types.Scene.mblab_random_engine = bpy.props.EnumProperty(
                 name = "Engine",
                 default = "LI")
 
+class GenericMorphButtonMinus(bpy.types.Operator):
+    bl_idname = "wellvr.generic_morph_button_minus"
+    bl_label = "Generic Morph Button Minus"
+
+    morphtargetprop = bpy.props.StringProperty()
+
+    def execute(self, context):
+        print("Pressed button", self.morphtargetprop, "min")
+        prop = self.morphtargetprop
+        mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] - 0.1
+        if mblab_humanoid.character_data[prop] > 1:
+            mblab_humanoid.character_data[prop] = 1
+        elif mblab_humanoid.character_data[prop] < 0:
+            mblab_humanoid.character_data[prop] = 0
+        print("Got", mblab_humanoid.character_data[prop])
+        return {'FINISHED'}
+
+class GenericMorphButtonPlus(bpy.types.Operator):
+    bl_idname = "wellvr.generic_morph_button_plus"
+    bl_label = "Generic Morph Button Plus"
+
+    morphtargetprop = bpy.props.StringProperty()
+
+    def execute(self, context):
+        print("Pressed button", self.morphtargetprop, "max")
+        # mblab_humanoid.get_property apparently doesn't exist? Even though it does. So get all the props instead, and sort through to find the match here
+        prop = self.morphtargetprop
+        mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] + 0.1
+        if mblab_humanoid.character_data[prop] > 1:
+            mblab_humanoid.character_data[prop] = 1
+        elif mblab_humanoid.character_data[prop] < 0:
+            mblab_humanoid.character_data[prop] = 0
+        print("Got", mblab_humanoid.character_data[prop])
+        return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
 
@@ -824,7 +861,7 @@ class ButtonAssetsOn(bpy.types.Operator):
         global gui_active_panel_fin
         gui_active_panel_fin = 'assets'
         return {'FINISHED'}
-        
+
 class ButtoAssetsOff(bpy.types.Operator):
     bl_label = 'ASSETS'
     bl_idname = 'mbast.button_assets_off'
@@ -1265,7 +1302,7 @@ class ResetExpressions(bpy.types.Operator):
         global mblab_shapekeys
         mblab_shapekeys.reset_expressions_GUI()
         return {'FINISHED'}
-        
+
 class LoadAssets(bpy.types.Operator):
     """
     Load assets from library
@@ -1278,9 +1315,9 @@ class LoadAssets(bpy.types.Operator):
 
     def execute(self, context):
         scn = bpy.context.scene
-        mblab_proxy.load_asset(scn.mblab_assets_models)  
+        mblab_proxy.load_asset(scn.mblab_assets_models)
         return {'FINISHED'}
-        
+
 
 class InsertExpressionKeyframe(bpy.types.Operator):
     """
@@ -1764,19 +1801,19 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
         if gui_status != "ACTIVE_SESSION":
             self.layout.label(" ")
             self.layout.label("AFTER-CREATION TOOLS")
-            
-            
+
+
             if gui_active_panel_fin != "assets":
                 self.layout.operator('mbast.button_assets_on', icon=icon_expand)
             else:
                 self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
                 #assets_status = mblab_proxy.validate_assets_fitting()
-                box = self.layout.box()  
-                box.prop(scn,'mblab_assets_models')  
-                box.operator('mbast.load_assets_element')                           
-                                    
-                
-                
+                box = self.layout.box()
+                box.prop(scn,'mblab_assets_models')
+                box.operator('mbast.load_assets_element')
+
+
+
             if gui_active_panel_fin != "pose":
                 self.layout.operator('mbast.button_pose_on', icon=icon_expand)
             else:
@@ -1830,7 +1867,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 box = self.layout.box()
                 box.label("PROXY FITTING")
-                
+
                 if fitting_status == "NO_REFERENCE":
                     box.enabled = False
                     box.label("Fitting not available for selected objects.", icon="INFO")
@@ -1845,8 +1882,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
                     if proxy_compatib == "WARNING":
                         box.label("The proxy is not designed for the selected character.", icon="ERROR")
-                    
-                    
+
+
                     box.prop(scn,'mblab_proxy_offset')
                     box.prop(scn,'mblab_proxy_threshold')
                     box.prop(scn, 'mblab_add_mask_group')
@@ -1952,17 +1989,19 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                     box = self.layout.box()
                     mblab_humanoid.bodydata_realtime_activated = True
-                    if mblab_humanoid.exists_measure_database():
-                        box.prop(scn, 'mblab_show_measures')
+                    # if mblab_humanoid.exists_measure_database():
+                    #     box.prop(scn, 'mblab_show_measures')
                     split = box.split()
 
                     col = split.column()
+                    col2 = split.column()
                     col.label("PARAMETERS")
-                    col.prop(scn, "morphingCategory")
+                    col2.prop(scn, "morphingCategory")
 
                     for prop in mblab_humanoid.get_properties_in_category(scn.morphingCategory):
                         if hasattr(obj, prop):
-                            col.prop(obj, prop)
+                            col.operator("wellvr.generic_morph_button_minus", text=prop+"_Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            col2.operator("wellvr.generic_morph_button_plus", text=prop+"_Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
 
                     if mblab_humanoid.exists_measure_database() and scn.mblab_show_measures:
                         col = split.column()
@@ -2108,16 +2147,21 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             else:
                 gui_status = "NEW_SESSION"
 
+#EasyBastioniLAB icon registration
+# global variable to store icons in
+custom_icons = None
+
 def register():
+    global custom_icons
+    custom_icons = bpy.utils.previews.new()
+    icons_dir = os.path.join(os.path.dirname(__file__), "icons")
+    custom_icons.load("custom_icon", os.path.join(icons_dir, "icon.png"), 'IMAGE')
     bpy.utils.register_module(__name__)
 
 def unregister():
+    global custom_icons
+    bpy.utils.previews.remove(custom_icons)
     bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
     register()
-
-
-
-
-
