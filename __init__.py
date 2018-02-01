@@ -2004,8 +2004,12 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                     for prop in mblab_humanoid.get_properties_in_category(scn.morphingCategory):
                         if hasattr(obj, prop):
-                            col.operator("wellvr.generic_morph_button_minus", text=prop+"_Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
-                            col2.operator("wellvr.generic_morph_button_plus", text=prop+"_Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            row = col.row()
+                            row.scale_y = 2.5
+                            row.operator("wellvr.generic_morph_button_minus", text=prop+"_Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            row2 = col2.row()
+                            row2.scale_y = 2.5
+                            row2.operator("wellvr.generic_morph_button_plus", text=prop+"_Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
 
                     if mblab_humanoid.exists_measure_database() and scn.mblab_show_measures:
                         col = split.column()
