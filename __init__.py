@@ -84,10 +84,6 @@ gui_err_msg = ""
 gui_active_panel = None
 gui_active_panel_fin = None
 
-
-
-
-
 def start_lab_session():
 
     global mblab_humanoid
@@ -311,7 +307,7 @@ def init_morphing_props(humanoid_instance):
                 soft_max = 1.0,
                 precision=3,
                 default=0.5,
-                update=realtime_update))
+                update=None))
 
 def init_measures_props(humanoid_instance):
     for measure_name,measure_val in humanoid_instance.morph_engine.measures.items():
@@ -660,6 +656,7 @@ class GenericMorphButtonMinus(bpy.types.Operator):
     morphtargetprop = bpy.props.StringProperty()
 
     def execute(self, context):
+        global mblab_humanoid
         print("Pressed button", self.morphtargetprop, "min")
         prop = self.morphtargetprop
         mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] - 0.1
@@ -667,6 +664,9 @@ class GenericMorphButtonMinus(bpy.types.Operator):
             mblab_humanoid.character_data[prop] = 1
         elif mblab_humanoid.character_data[prop] < 0:
             mblab_humanoid.character_data[prop] = 0
+        scn = bpy.context.scene
+        # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
+        mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
         print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
@@ -677,6 +677,7 @@ class GenericMorphButtonPlus(bpy.types.Operator):
     morphtargetprop = bpy.props.StringProperty()
 
     def execute(self, context):
+        global mblab_humanoid
         print("Pressed button", self.morphtargetprop, "max")
         # mblab_humanoid.get_property apparently doesn't exist? Even though it does. So get all the props instead, and sort through to find the match here
         prop = self.morphtargetprop
@@ -685,6 +686,9 @@ class GenericMorphButtonPlus(bpy.types.Operator):
             mblab_humanoid.character_data[prop] = 1
         elif mblab_humanoid.character_data[prop] < 0:
             mblab_humanoid.character_data[prop] = 0
+        scn = bpy.context.scene
+        # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
+        mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
         print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
