@@ -36,6 +36,8 @@ import logging
 
 #new imports - EasyBastioniLAB
 import bpy.utils.previews
+import bpy_extras
+from math import radians
 
 #import cProfile, pstats, io
 #import faulthandler
@@ -449,6 +451,23 @@ def angle_update_2(self, context):
     value = scn.mblab_rot_offset_2
     mblab_retarget.correct_bone_angle(2,value)
 
+def generate_previews():
+    pcoll = preview_collections["thumbnail_previews"]
+    image_location = pcoll.images_location
+    VALID_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+
+    enum_items = []
+
+    # Generate the thumbnails
+    for i, image in enumerate(os.listdir(image_location)):
+        if image.endswith(VALID_EXTENSIONS):
+            filepath = os.path.join(image_location, image)
+            thumb = pcoll.load(filepath, filepath, 'IMAGE')
+            enum_items.append((image, image, "", thumb.icon_id, i))
+            break
+
+    return enum_items
+
 
 init_expression_props()
 
@@ -679,7 +698,6 @@ class GenericMorphButtonPlus(bpy.types.Operator):
     def execute(self, context):
         global mblab_humanoid
         print("Pressed button", self.morphtargetprop, "max")
-        # mblab_humanoid.get_property apparently doesn't exist? Even though it does. So get all the props instead, and sort through to find the match here
         prop = self.morphtargetprop
         mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] + 0.1
         if mblab_humanoid.character_data[prop] > 1:
@@ -690,6 +708,100 @@ class GenericMorphButtonPlus(bpy.types.Operator):
         # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
         mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
         print("Got", mblab_humanoid.character_data[prop])
+        return {'FINISHED'}
+
+class ExportToUnrealButton(bpy.types.Operator):
+    bl_idname = "wellvr.export_to_unreal"
+    bl_label = "Export To Unreal"
+
+    def execute(self, context):
+        global mblab_humanoid
+
+        text = bpy.data.texts.load(os.path.join(os.path.dirname(__file__), "bone_rename_script.py"))   # if from disk
+        # bone_rename_script_path = os.path.join(os.path.dirname(__file__), "bone_rename_script.py")
+        # text = bpy.data.texts[bone_rename_script_path]   # if exists in blend
+        ctx = bpy.context.copy()
+        ctx['edit_text'] = text
+        bpy.ops.text.run_script(ctx)
+        print("Ran script")
+
+        return {'FINISHED'}
+
+class TakePicturesWithCamera(bpy.types.Operator):
+    bl_idname = "wellvr.take_pictures_with_camera_button"
+    bl_label = "Take Pictures with Camera"
+    def execute(self, context):
+        if(len(bpy.data.cameras) == 1):
+            camObj = bpy.data.objects['Camera']
+            # Create dicts
+            camLocations = {}
+            camRotations = {}
+            camLocations['Cheeks'] = (0.083247, -0.449644, 1.56223)
+            camRotations['Cheeks'] = (88, 0, 14)
+            camLocations['Chin'] = (0.152795, -0.324773, 1.48924)
+            camRotations['Chin'] = (92.640, -0.00086, 33.006)
+            camLocations['Ears'] = (0.237536, -0.109038, 1.55073)
+            camRotations['Ears'] = (91, 0, 69.4)
+            camLocations['Eyebrows'] = (0.118239, -0.303023, 1.56058)
+            camRotations['Eyebrows'] = (92.9, 0, 30.8)
+            camLocations['Eyelids'] = (0.118239, -0.303023, 1.56058)
+            camRotations['Eyelids'] = (92.9, 0, 30.8)
+            camLocations['Eyes'] = (0.047876, -0.309219, 1.5633)
+            camRotations['Eyes'] = (91.8, 0, 12.6)
+            camLocations['Face'] = (0.20389, -0.566657, 1.56116)
+            camRotations['Face'] = (89.2, 0, 20.7)
+            camLocations['Forehead'] = (0.191943, -0.453059, 1.58538)
+            camRotations['Forehead'] = (90.4, 0, 26.7)
+            camLocations['Head'] = (0.423361, -0.496835, 1.56154)
+            camRotations['Head'] = (89.5, 0, 41.9)
+            camLocations['Jaw'] = (0.123432, -0.385534, 1.54345)
+            camRotations['Jaw'] = (86.3, 0, 21.6)
+            camLocations['Mouth'] = (0.057212, -0.257153, 1.52886)
+            camRotations['Mouth'] = (81.1, 0, 23)
+            camLocations['Nose'] = (0.110908, -0.294595, 1.56963)
+            camRotations['Nose'] = (83.6, 0, 33.1)
+            prop_count = 0
+            for key, value in camLocations.items():
+                print(key, value, camRotations[key])
+                camObj.location = value
+                x,y,z = camRotations[key]
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+                for prop in mblab_humanoid.get_properties_in_category(key):
+                    print(prop)
+                    prop_count += 1
+                    # Get image of min prop
+                    mblab_humanoid.character_data[prop] = 0
+                    mblab_humanoid.update_character(category_name = key, mode="update_all")
+                    prop_path = str(prop+"_Min")
+                    print(prop_path)
+                    file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
+                    bpy.context.scene.render.filepath = file
+                    bpy.ops.render.render( write_still=True )
+                    # Get image of maxed prop
+                    mblab_humanoid.character_data[prop] = 1
+                    mblab_humanoid.update_character(category_name = key, mode="update_all")
+                    prop_path = str(prop+"_Max")
+                    print(prop_path)
+                    file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
+                    bpy.context.scene.render.filepath = file
+                    bpy.ops.render.render( write_still=True )
+                    # Reset the prop
+                    mblab_humanoid.character_data[prop] = 0.5
+                    mblab_humanoid.update_character(category_name = key, mode="update_all")
+                    print('\n')
+            print("Total props imaged:", prop_count)
+
+        # scene = bpy.context.scene
+        # obj = bpy.context.object
+        # co = bpy.context.scene.cursor_location
+        #
+        # co_2d = bpy_extras.object_utils.world_to_camera_view(scene, camObj, co)
+        # print("2D Coords:", co_2d)
+
+        # If you want pixel coords
+        # render_scale = scene.render.resolution_percentage / 100
+        # render_size = (int(scene.render.resolution_x * render_scale), int(scene.render.resolution_y * render_scale), )
+        # print("Pixel Coords:", (round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]), ))
         return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
@@ -2000,6 +2112,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     col = split.column()
                     col2 = split.column()
                     col.label("PARAMETERS")
+                    col.operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
                     col2.prop(scn, "morphingCategory")
 
                     for prop in mblab_humanoid.get_properties_in_category(scn.morphingCategory):
@@ -2148,6 +2261,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     else:
                         box.operator("mbast.corrective_disable", icon='X')
 
+                self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
+
                 self.layout.label(" ")
                 self.layout.label("AFTER-CREATION TOOLS")
                 self.layout.label("After-creation tools (expressions, poses, ecc..) not available for unfinalized characters", icon="INFO")
@@ -2155,20 +2270,40 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             else:
                 gui_status = "NEW_SESSION"
 
-#EasyBastioniLAB icon registration
-# global variable to store icons in
-custom_icons = None
+#EasyBastioniLAB icon & thumbnail registration
+custom_icons = None # global variable to store icons in
+preview_collections = {} # global variable to store thumbnails in
 
 def register():
+    from bpy.types import Scene
+    from bpy.props import StringProperty, EnumProperty
+
     global custom_icons
+    global preview_collections
+
     custom_icons = bpy.utils.previews.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     custom_icons.load("custom_icon", os.path.join(icons_dir, "icon.png"), 'IMAGE')
     bpy.utils.register_module(__name__)
+    pcoll = bpy.utils.previews.new()
+
+    pcoll.images_location = os.path.join(os.path.dirname(__file__), "images")
+    preview_collections["thumbnail_previews"] = pcoll
+    bpy.types.Scene.my_thumbnails = EnumProperty(
+        items=generate_previews(),
+    )
 
 def unregister():
     global custom_icons
+    global preview_collections
+
     bpy.utils.previews.remove(custom_icons)
+
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
+    del bpy.types.Scene.my_thumbnails
+
     bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":
