@@ -342,6 +342,18 @@ def init_restposes_props(humanoid_instance):
             default=restpose_items[0][0],
             update=restpose_update)
 
+        for item in restpose_items:
+            if (item[0] == 't-pose'):
+                wellvr_restpose_update()
+
+def wellvr_restpose_update():
+    global mblab_humanoid
+    armature = mblab_humanoid.get_armature()
+    filepath = os.path.join(
+        mblab_humanoid.restposes_path,
+        "".join([armature.rest_pose, ".json"]))
+    mblab_retarget.load_pose(filepath, armature)
+
 def init_maleposes_props():
     global mblab_retarget
     if mblab_retarget.maleposes_exist:
@@ -716,14 +728,64 @@ class ExportToUnrealButton(bpy.types.Operator):
 
     def execute(self, context):
         global mblab_humanoid
+        global gui_status
 
+        # Scale factor 100
+        bpy.context.area.spaces[0].pivot_point='CURSOR'
+        bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
+        print(bpy.ops.object.mode)
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj = mblab_humanoid.get_object()
+        mblab_humanoid.remove_modifier(modifier_name='mbastlab_corrective_modifier')
+        # obj.scale *= 100
+
+        # Load and run attached "bone_rename_script.py" script
         text = bpy.data.texts.load(os.path.join(os.path.dirname(__file__), "bone_rename_script.py"))   # if from disk
-        # bone_rename_script_path = os.path.join(os.path.dirname(__file__), "bone_rename_script.py")
-        # text = bpy.data.texts[bone_rename_script_path]   # if exists in blend
         ctx = bpy.context.copy()
         ctx['edit_text'] = text
         bpy.ops.text.run_script(ctx)
-        print("Ran script")
+        print("Ran bone_rename_script")
+
+        #Transform and save
+        k = 100 #scale constant
+        for ob in bpy.data.objects:
+            ob.select = True
+
+        bpy.ops.transform.resize(value=(k,k,k))
+        bpy.ops.object.transform_apply(scale=True)
+        bpy.ops.wm.save_mainfile()
+
+        basedir = os.path.join(os.path.dirname(__file__), "exports")
+        # basedir = os.path.dirname(bpy.data.filepath)
+        if not basedir:
+            raise Exception("Blend file is not saved")
+        name = bpy.path.clean_name(obj.name)
+        fn = os.path.join(basedir, name)
+        # bpy.ops.export_scene.fbx(filepath=fn + ".fbx")
+
+        print("written:", fn)
+
+        scn = bpy.context.scene
+        armature = mblab_humanoid.get_armature()
+
+        mblab_humanoid.correct_expressions(correct_all=True)
+
+        if scn.mblab_remove_all_modifiers:
+            mblab_humanoid.remove_modifiers()
+
+        mblab_humanoid.sync_internal_data_with_mesh()
+        mblab_humanoid.update_displacement()
+        mblab_humanoid.update_materials()
+        mblab_humanoid.save_backup_character(basedir)
+        mblab_humanoid.save_all_textures(basedir)
+
+        mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+        mblab_humanoid.delete_all_properties()
+        # mblab_humanoid.rename_materials(scn.mblab_final_prefix)
+        mblab_humanoid.update_bendy_muscles()
+        # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
+        # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
+        gui_status = "NEW_SESSION"
 
         return {'FINISHED'}
 
@@ -2162,22 +2224,23 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     box.enabled = False
                     box.label("Automodelling not available for this character", icon='INFO')
 
-                if mblab_humanoid.exists_rest_poses_database():
-                    if gui_active_panel != "rest_pose":
-                        self.layout.operator('mbast.button_rest_pose_on', icon=icon_expand)
-                    else:
-                        self.layout.operator('mbast.button_rest_pose_off', icon=icon_collapse)
-                        box = self.layout.box()
+                # if mblab_humanoid.exists_rest_poses_database():
+                #     if gui_active_panel != "rest_pose":
+                #         self.layout.operator('mbast.button_rest_pose_on', icon=icon_expand)
+                #     else:
+                #         self.layout.operator('mbast.button_rest_pose_off', icon=icon_collapse)
+                #         box = self.layout.box()
+                #
+                #         if algorithms.is_IK_armature(armature):
+                #             box.enabled = False
+                #             box.label("Rest poses are not available for IK armatures", icon='INFO')
+                #         else:
+                #             box.enabled = True
+                #             box.prop(armature, "rest_pose")
+                #
+                #             box.operator("mbast.restpose_load")
+                #             box.operator("mbast.restpose_save")
 
-                        if algorithms.is_IK_armature(armature):
-                            box.enabled = False
-                            box.label("Rest poses are not available for IK armatures", icon='INFO')
-                        else:
-                            box.enabled = True
-                            box.prop(armature, "rest_pose")
-
-                            box.operator("mbast.restpose_load")
-                            box.operator("mbast.restpose_save")
 
                 if gui_active_panel != "skin":
                     self.layout.operator('mbast.button_skin_on', icon=icon_expand)

@@ -160,8 +160,8 @@ class Humanoid:
         self.lib_filepath = algorithms.get_blendlibrary_path()
         if self.characters_config:
             self.humanoid_types = self.build_items_list("character_list")
-            self.template_types = self.build_items_list("templates_list")            
-            
+            self.template_types = self.build_items_list("templates_list")
+
     def is_muscle_rig_available(self, character_identifier):
         if self.characters_config[character_identifier]["vertexgroup_muscle_file"] != "":
             return True
@@ -204,7 +204,7 @@ class Humanoid:
 
         self.phenotypes_path = os.path.join(self.data_path, "phenotypes",self.phenotype_data_folder)
         self.presets_path = os.path.join(self.data_path, "presets",self.presets_data_folder)
-        self.restposes_path = os.path.join(self.data_path,"poses","rest_poses")        
+        self.restposes_path = os.path.join(self.data_path,"poses","rest_poses")
 
         self.transformations_data_path = os.path.join(self.data_path,"transformations",self.transformation_filename)
 
@@ -241,7 +241,7 @@ class Humanoid:
         self.load_transformation_database()
         self.add_corrective_smooth_modifier()
         self.add_subdivision_modifier()
-        self.add_displacement_modifier()        
+        self.add_displacement_modifier()
         self.has_data = True
 
     def add_subdivision_modifier(self):
@@ -426,6 +426,12 @@ class Humanoid:
         for modf in obj.modifiers:
             if "mbastlab" in modf.name:
                 if "armature" not in modf.name:
+                    obj.modifiers.remove(modf)
+
+    def remove_modifier(self, modifier_name):
+        obj = self.get_object()
+        for modf in obj.modifiers:
+            if modifier_name == modf.name:
                     obj.modifiers.remove(modf)
 
     def save_body_displacement_texture(self, filepath):
@@ -1183,19 +1189,3 @@ class Humanoid:
         obj = self.get_object()
         parameters = {"show_viewport":True,"invert_vertex_group": True, "vertex_group":"head"}
         algorithms.new_modifier(obj, self.corrective_modifier_name, 'CORRECTIVE_SMOOTH', parameters)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
