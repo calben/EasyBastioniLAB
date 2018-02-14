@@ -38,6 +38,7 @@ import logging
 import bpy.utils.previews
 import bpy_extras
 from math import radians
+import uuid
 
 #import cProfile, pstats, io
 #import faulthandler
@@ -734,7 +735,8 @@ class ExportToUnrealButton(bpy.types.Operator):
         bpy.context.area.spaces[0].pivot_point='CURSOR'
         bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
         print(bpy.ops.object.mode)
-        bpy.ops.object.mode_set(mode='OBJECT')
+        if (bpy.ops.object.mode != 'OBJECT'):
+            bpy.ops.object.mode_set(mode='OBJECT')
         obj = mblab_humanoid.get_object()
         mblab_humanoid.remove_modifier(modifier_name='mbastlab_corrective_modifier')
         # obj.scale *= 100
@@ -759,11 +761,14 @@ class ExportToUnrealButton(bpy.types.Operator):
         # basedir = os.path.dirname(bpy.data.filepath)
         if not basedir:
             raise Exception("Blend file is not saved")
-        name = bpy.path.clean_name(obj.name)
-        fn = os.path.join(basedir, name)
+        filename = str(uuid.uuid4())
+        fn = os.path.join(basedir, filename)
         # bpy.ops.export_scene.fbx(filepath=fn + ".fbx")
 
         print("written:", fn)
+
+        filename = filename + ".png"
+        basedir = os.path.join(basedir, filename)
 
         scn = bpy.context.scene
         armature = mblab_humanoid.get_armature()
@@ -785,7 +790,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         mblab_humanoid.update_bendy_muscles()
         # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
-        gui_status = "NEW_SESSION"
+        # gui_status = "NEW_SESSION"
 
         return {'FINISHED'}
 
