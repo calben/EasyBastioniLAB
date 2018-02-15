@@ -755,7 +755,15 @@ class ExportToUnrealButton(bpy.types.Operator):
 
         bpy.ops.transform.resize(value=(k,k,k))
         bpy.ops.object.transform_apply(scale=True)
-        bpy.ops.wm.save_mainfile()
+        # bpy.ops.wm.save_mainfile()
+
+        mblab_humanoid.correct_expressions(correct_all=True)
+
+        mblab_humanoid.remove_modifiers()
+
+        mblab_humanoid.sync_internal_data_with_mesh()
+        mblab_humanoid.update_displacement()
+        mblab_humanoid.update_materials()
 
         basedir = os.path.join(os.path.dirname(__file__), "exports")
         # basedir = os.path.dirname(bpy.data.filepath)
@@ -763,36 +771,49 @@ class ExportToUnrealButton(bpy.types.Operator):
             raise Exception("Blend file is not saved")
         filename = str(uuid.uuid4())
         fn = os.path.join(basedir, filename)
-        # bpy.ops.export_scene.fbx(filepath=fn + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=fn + ".fbx")
 
         print("written:", fn)
 
         filename = filename + ".png"
         basedir = os.path.join(basedir, filename)
 
-        scn = bpy.context.scene
-        armature = mblab_humanoid.get_armature()
-
-        mblab_humanoid.correct_expressions(correct_all=True)
-
-        if scn.mblab_remove_all_modifiers:
-            mblab_humanoid.remove_modifiers()
-
-        mblab_humanoid.sync_internal_data_with_mesh()
-        mblab_humanoid.update_displacement()
-        mblab_humanoid.update_materials()
         mblab_humanoid.save_backup_character(basedir)
         mblab_humanoid.save_all_textures(basedir)
 
-        mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
-        mblab_humanoid.delete_all_properties()
+        # mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+        # mblab_humanoid.delete_all_properties()
         # mblab_humanoid.rename_materials(scn.mblab_final_prefix)
-        mblab_humanoid.update_bendy_muscles()
+        # mblab_humanoid.update_bendy_muscles()
         # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
         # gui_status = "NEW_SESSION"
 
         return {'FINISHED'}
+
+class ReturnToInitScreen(bpy.types.Operator):
+    bl_idname = "wellvr.return_to_init_screen"
+    bl_label = "Return to Init"
+
+    def execute(self, context):
+        obj = mblab_humanoid.get_object()
+        name = bpy.path.clean_name(obj.name)
+        if (bpy.ops.object.mode != 'OBJECT'):
+            bpy.ops.object.mode_set(mode='OBJECT')
+        for o in bpy.data.objects:
+            if name in o.name:
+                o.select = True
+            else:
+                o.select = False
+
+        bpy.ops.object.delete()
+
+        # save and re-open the file to clean up the data blocks
+        # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
+        # bpy.ops.wm.save_as_mainfile(filepath=basedir)
+        # bpy.ops.wm.open_mainfile(filepath=basedir)
+        gui_status = "NEW_SESSION"
+        return{'FINISHED'}
 
 class TakePicturesWithCamera(bpy.types.Operator):
     bl_idname = "wellvr.take_pictures_with_camera_button"
@@ -869,6 +890,38 @@ class TakePicturesWithCamera(bpy.types.Operator):
         # render_scale = scene.render.resolution_percentage / 100
         # render_size = (int(scene.render.resolution_x * render_scale), int(scene.render.resolution_y * render_scale), )
         # print("Pixel Coords:", (round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]), ))
+        return {'FINISHED'}
+
+class ExportCharacterPresetsButton(bpy.types.Operator):
+    bl_idname = "wellvr.export_character_presets_button"
+    bl_label = "Export Character Presets"
+
+    def execute(self, context):
+        print("I'm a beautiful toad princess")
+
+        mblab_humanoid.correct_expressions(correct_all=True)
+
+        mblab_humanoid.remove_modifiers()
+
+        mblab_humanoid.sync_internal_data_with_mesh()
+        mblab_humanoid.update_displacement()
+        mblab_humanoid.update_materials()
+
+        basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
+        # basedir = os.path.dirname(bpy.data.filepath)
+        if not basedir:
+            raise Exception("Blend file is not saved")
+        filename = str(uuid.uuid4())
+        fn = os.path.join(basedir, filename)
+        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", object_types={'ARMATURE', 'MESH'})
+
+        print("written:", fn)
+
+        filename = filename + ".png"
+        basedir = os.path.join(basedir, filename)
+
+        mblab_humanoid.save_backup_character(basedir)
+        mblab_humanoid.save_all_textures(basedir)
         return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
@@ -2179,7 +2232,6 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     col = split.column()
                     col2 = split.column()
                     col.label("PARAMETERS")
-                    col.operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
                     col2.prop(scn, "morphingCategory")
 
                     for prop in mblab_humanoid.get_properties_in_category(scn.morphingCategory):
@@ -2329,6 +2381,9 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     else:
                         box.operator("mbast.corrective_disable", icon='X')
 
+                # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
+                self.layout.operator('wellvr.export_character_presets_button')
+                self.layout.operator('wellvr.return_to_init_screen')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
                 self.layout.label(" ")
