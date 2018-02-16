@@ -15,12 +15,12 @@
 
 
 bl_info = {
-    "name": "ManuelbastioniLAB",
-    "author": "Manuel Bastioni",
+    "name": "EasyBastioniLAB",
+    "author": "iGotcha Media, Manuel Bastioni",
     "version": (1, 6, 1),
     "blender": (2, 7, 9),
-    "location": "View3D > Tools > ManuelbastioniLAB",
-    "description": "A complete lab for characters creation",
+    "location": "View3D > Tools > EasyBastioniLAB",
+    "description": "An easy lab for character creation",
     "warning": "",
     'wiki_url': "http://www.manuelbastioni.com",
     "category": "Characters"}
@@ -481,7 +481,6 @@ def generate_previews():
 
     return enum_items
 
-
 init_expression_props()
 
 bpy.types.Scene.mblab_final_prefix = bpy.props.StringProperty(
@@ -791,11 +790,80 @@ class ExportToUnrealButton(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class ExportCharacterPresetsButton(bpy.types.Operator):
+    bl_idname = "wellvr.export_character_presets_button"
+    bl_label = "Export Character Presets"
+
+    def execute(self, context):
+        print("I'm a beautiful toad princess")
+
+        scene = bpy.context.scene
+        for character in mblab_humanoid.humanoid_types:
+            if (character[0] == 'm_af01'):
+                print(character)
+                scene.mblab_character_name = character[0]
+                bpy.ops.mbast.init_character('INVOKE_DEFAULT')
+                if mblab_humanoid.exists_phenotype_database():
+                    ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
+                    for phenotype in ethnic_items:
+                        print (phenotype)
+                        if humanoid_instance.exists_preset_database():
+                            preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
+                            for preset in preset_items:
+                                print (preset)
+
+                # mblab_humanoid.correct_expressions(correct_all=True)
+                #
+                # mblab_humanoid.remove_modifiers()
+                #
+                # mblab_humanoid.sync_internal_data_with_mesh()
+                # mblab_humanoid.update_displacement()
+                # mblab_humanoid.update_materials()
+                #
+                # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
+                # # basedir = os.path.dirname(bpy.data.filepath)
+                # if not basedir:
+                #     raise Exception("Blend file is not saved")
+                # filename = str(uuid.uuid4())
+                # fn = os.path.join(basedir, filename)
+                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", object_types={'ARMATURE', 'MESH'})
+                #
+                # print("written:", fn)
+                #
+                # filename = filename + ".png"
+                # basedir = os.path.join(basedir, filename)
+                #
+                # mblab_humanoid.save_backup_character(basedir)
+                # mblab_humanoid.save_all_textures(basedir)
+                #
+                # # Return to init
+                # obj = mblab_humanoid.get_object()
+                # name = bpy.path.clean_name(obj.name)
+                # if (bpy.ops.object.mode != 'OBJECT'):
+                #     bpy.ops.object.mode_set(mode='OBJECT')
+                # for o in bpy.data.objects:
+                #     if name in o.name:
+                #         o.select = True
+                #     else:
+                #         o.select = False
+                #
+                # bpy.ops.object.delete()
+                #
+                # # save and re-open the file to clean up the data blocks
+                # # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
+                # # bpy.ops.wm.save_as_mainfile(filepath=basedir)
+                # # bpy.ops.wm.open_mainfile(filepath=basedir)
+                # gui_status = "NEW_SESSION"
+                # #TODO: Add selection of different character models
+
+        return {'FINISHED'}
+
 class ReturnToInitScreen(bpy.types.Operator):
     bl_idname = "wellvr.return_to_init_screen"
     bl_label = "Return to Init"
 
     def execute(self, context):
+        # Return to init
         obj = mblab_humanoid.get_object()
         name = bpy.path.clean_name(obj.name)
         if (bpy.ops.object.mode != 'OBJECT'):
@@ -890,38 +958,6 @@ class TakePicturesWithCamera(bpy.types.Operator):
         # render_scale = scene.render.resolution_percentage / 100
         # render_size = (int(scene.render.resolution_x * render_scale), int(scene.render.resolution_y * render_scale), )
         # print("Pixel Coords:", (round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]), ))
-        return {'FINISHED'}
-
-class ExportCharacterPresetsButton(bpy.types.Operator):
-    bl_idname = "wellvr.export_character_presets_button"
-    bl_label = "Export Character Presets"
-
-    def execute(self, context):
-        print("I'm a beautiful toad princess")
-
-        mblab_humanoid.correct_expressions(correct_all=True)
-
-        mblab_humanoid.remove_modifiers()
-
-        mblab_humanoid.sync_internal_data_with_mesh()
-        mblab_humanoid.update_displacement()
-        mblab_humanoid.update_materials()
-
-        basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
-        # basedir = os.path.dirname(bpy.data.filepath)
-        if not basedir:
-            raise Exception("Blend file is not saved")
-        filename = str(uuid.uuid4())
-        fn = os.path.join(basedir, filename)
-        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", object_types={'ARMATURE', 'MESH'})
-
-        print("written:", fn)
-
-        filename = filename + ".png"
-        basedir = os.path.join(basedir, filename)
-
-        mblab_humanoid.save_backup_character(basedir)
-        mblab_humanoid.save_all_textures(basedir)
         return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
@@ -1995,12 +2031,12 @@ class LoadTemplate(bpy.types.Operator):
 
 class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
-    bl_label = "ManuelbastioniLAB {0}.{1}.{2}".format(bl_info["version"][0],bl_info["version"][1],bl_info["version"][2])
+    bl_label = "EasyBastioniLAB"
     bl_idname = "OBJECT_PT_characters01"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     #bl_context = 'objectmode'
-    bl_category = "ManuelBastioniLAB"
+    bl_category = "EasyBastioniLAB"
 
     @classmethod
     def poll(cls, context):
@@ -2020,7 +2056,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
         if gui_status == "NEW_SESSION":
             #box = self.layout.box()
 
-            self.layout.label("www.manuelbastioni.com")
+            # self.layout.label("www.manuelbastioni.com")
             self.layout.label("CREATION TOOLS")
             self.layout.prop(scn, 'mblab_character_name')
 
@@ -2033,6 +2069,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             if scn.mblab_use_cycles:
                 self.layout.prop(scn,'mblab_use_lamps')
             self.layout.operator('mbast.init_character')
+            self.layout.operator('wellvr.export_character_presets_button')
 
         if gui_status != "ACTIVE_SESSION":
             self.layout.label(" ")
@@ -2382,7 +2419,6 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         box.operator("mbast.corrective_disable", icon='X')
 
                 # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
-                self.layout.operator('wellvr.export_character_presets_button')
                 self.layout.operator('wellvr.return_to_init_screen')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
