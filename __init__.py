@@ -82,6 +82,9 @@ mblab_retarget = animationengine.RetargetEngine()
 mblab_shapekeys = animationengine.ExpressionEngineShapeK()
 mblab_proxy = proxyengine.ProxyEngine()
 
+#wellvr global variables
+advanced_mode_is_on = False
+
 gui_status = "NEW_SESSION"
 gui_err_msg = ""
 gui_active_panel = None
@@ -546,7 +549,7 @@ bpy.types.Scene.mblab_use_cycles = bpy.props.BoolProperty(
 
 bpy.types.Scene.mblab_use_lamps = bpy.props.BoolProperty(
     name="Use portrait studio lights (recommended)",
-    default = True,
+    default = False,
     description="Add a set of lights optimized for portrait. Useful during the design of skin (recommended)")
 
 bpy.types.Scene.mblab_show_measures = bpy.props.BoolProperty(
@@ -764,7 +767,10 @@ class ExportToUnrealButton(bpy.types.Operator):
         mblab_humanoid.update_displacement()
         mblab_humanoid.update_materials()
 
+
         basedir = os.path.join(os.path.dirname(__file__), "exports")
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
         # basedir = os.path.dirname(bpy.data.filepath)
         if not basedir:
             raise Exception("Blend file is not saved")
@@ -822,6 +828,8 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                 #
                 # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
                 # # basedir = os.path.dirname(bpy.data.filepath)
+                # if not os.path.exists(basedir):
+                #     os.makedirs(basedir)
                 # if not basedir:
                 #     raise Exception("Blend file is not saved")
                 # filename = str(uuid.uuid4())
@@ -2060,140 +2068,143 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             self.layout.label("CREATION TOOLS")
             self.layout.prop(scn, 'mblab_character_name')
 
-            if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
-                self.layout.prop(scn,'mblab_use_ik')
-            if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
-                self.layout.prop(scn,'mblab_use_muscle')
+            if advanced_mode_is_on:
+                if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
+                    self.layout.prop(scn,'mblab_use_ik')
+                if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
+                    self.layout.prop(scn,'mblab_use_muscle')
 
-            self.layout.prop(scn,'mblab_use_cycles')
-            if scn.mblab_use_cycles:
-                self.layout.prop(scn,'mblab_use_lamps')
+                self.layout.prop(scn,'mblab_use_cycles')
+                if scn.mblab_use_cycles:
+                    self.layout.prop(scn,'mblab_use_lamps')
+
             self.layout.operator('mbast.init_character')
             self.layout.operator('wellvr.export_character_presets_button')
 
         if gui_status != "ACTIVE_SESSION":
-            self.layout.label(" ")
-            self.layout.label("AFTER-CREATION TOOLS")
+            if advanced_mode_is_on:
+                self.layout.label(" ")
+                self.layout.label("AFTER-CREATION TOOLS")
 
 
-            if gui_active_panel_fin != "assets":
-                self.layout.operator('mbast.button_assets_on', icon=icon_expand)
-            else:
-                self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
-                #assets_status = mblab_proxy.validate_assets_fitting()
-                box = self.layout.box()
-                box.prop(scn,'mblab_assets_models')
-                box.operator('mbast.load_assets_element')
-
-
-
-            if gui_active_panel_fin != "pose":
-                self.layout.operator('mbast.button_pose_on', icon=icon_expand)
-            else:
-                self.layout.operator('mbast.button_pose_off', icon=icon_collapse)
-                box = self.layout.box()
-
-                armature = algorithms.get_active_armature()
-                if armature != None and algorithms.is_IK_armature(armature) != True:
-                    box.enabled = True
-                    sel_gender = algorithms.get_selected_gender()
-                    if sel_gender == "FEMALE":
-                        if mblab_retarget.femaleposes_exist:
-                            box.prop(armature, "female_pose")
-                    if sel_gender == "MALE":
-                        if mblab_retarget.maleposes_exist:
-                            box.prop(armature, "male_pose")
-                    box.operator("mbast.pose_load", icon='IMPORT')
-                    box.operator("mbast.pose_save", icon='EXPORT')
-                    box.operator("mbast.pose_reset", icon='ARMATURE_DATA')
-                    box.operator("mbast.load_animation", icon='IMPORT')
+                if gui_active_panel_fin != "assets":
+                    self.layout.operator('mbast.button_assets_on', icon=icon_expand)
                 else:
-                    box.enabled = False
-                    box.label("Please select the lab character (IK not supported)", icon = 'INFO')
+                    self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
+                    #assets_status = mblab_proxy.validate_assets_fitting()
+                    box = self.layout.box()
+                    box.prop(scn,'mblab_assets_models')
+                    box.operator('mbast.load_assets_element')
 
-            if gui_active_panel_fin != "expressions":
-                self.layout.operator('mbast.button_expressions_on', icon=icon_expand)
-            else:
-                self.layout.operator('mbast.button_expressions_off', icon=icon_collapse)
-                box = self.layout.box()
-                mblab_shapekeys.update_expressions_data()
-                if mblab_shapekeys.model_type != "NONE":
-                    box.enabled = True
-                    box.prop(scn, 'mblab_expression_filter')
-                    box.operator("mbast.keyframe_expression", icon="ACTION")
-                    if mblab_shapekeys.expressions_data:
-                        obj = algorithms.get_active_body()
-                        for expr_name in sorted(mblab_shapekeys.expressions_data.keys()):
-                            if hasattr(obj, expr_name):
-                                if scn.mblab_expression_filter in expr_name:
-                                    box.prop(obj, expr_name)
-                    box.operator("mbast.reset_expression", icon="RECOVER_AUTO")
+
+
+                if gui_active_panel_fin != "pose":
+                    self.layout.operator('mbast.button_pose_on', icon=icon_expand)
                 else:
-                    box.enabled = False
-                    box.label("No express. shapekeys", icon = 'INFO')
+                    self.layout.operator('mbast.button_pose_off', icon=icon_collapse)
+                    box = self.layout.box()
 
-            if gui_active_panel_fin != "proxy_fit":
-                self.layout.operator('mbast.button_proxy_fit_on', icon=icon_expand)
-            else:
-                self.layout.operator('mbast.button_proxy_fit_off', icon=icon_collapse)
-                fitting_status, proxy_obj, reference_obj = mblab_proxy.validate_proxy_fitting()
+                    armature = algorithms.get_active_armature()
+                    if armature != None and algorithms.is_IK_armature(armature) != True:
+                        box.enabled = True
+                        sel_gender = algorithms.get_selected_gender()
+                        if sel_gender == "FEMALE":
+                            if mblab_retarget.femaleposes_exist:
+                                box.prop(armature, "female_pose")
+                        if sel_gender == "MALE":
+                            if mblab_retarget.maleposes_exist:
+                                box.prop(armature, "male_pose")
+                        box.operator("mbast.pose_load", icon='IMPORT')
+                        box.operator("mbast.pose_save", icon='EXPORT')
+                        box.operator("mbast.pose_reset", icon='ARMATURE_DATA')
+                        box.operator("mbast.load_animation", icon='IMPORT')
+                    else:
+                        box.enabled = False
+                        box.label("Please select the lab character (IK not supported)", icon = 'INFO')
 
-                box = self.layout.box()
-                box.label("PROXY FITTING")
-
-                if fitting_status == "NO_REFERENCE":
-                    box.enabled = False
-                    box.label("Fitting not available for selected objects.", icon="INFO")
-                    box.label("Possible reasons:")
-                    box.label("- Body created with a different lab version")
-                    box.label("- Body topology modified by custom modelling")
-                    box.label("- Selection of a non-mesh object")
-                    box.label("- Body topology altered by modifiers (decimator,subsurf, etc..)")
-                if fitting_status == 'OK':
-                    box.enabled = True
-                    box.label("The proxy is ready for fitting.", icon="INFO")
-                    proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
-                    if proxy_compatib == "WARNING":
-                        box.label("The proxy is not designed for the selected character.", icon="ERROR")
-
-
-                    box.prop(scn,'mblab_proxy_offset')
-                    box.prop(scn,'mblab_proxy_threshold')
-                    box.prop(scn, 'mblab_add_mask_group')
-                    box.prop(scn, 'mblab_overwrite_proxy_weights')
-                    box.operator("mbast.proxy_fit", icon="MOD_CLOTH")
-                    box.operator("mbast.proxy_removefit", icon="MOD_CLOTH")
-                if fitting_status == 'WRONG_SELECTION':
-                    box.enabled = False
-                    box.label("Please select only two objects: humanoid and proxy", icon="INFO")
-                if fitting_status == 'NO_REFERENCE_SELECTED':
-                    box.enabled = False
-                    box.label("No valid humanoid template selected", icon="INFO")
-                if fitting_status == 'NO_MESH_SELECTED':
-                    box.enabled = False
-                    box.label("Selected proxy is not a mesh", icon="INFO")
-
-            if gui_active_panel_fin != "utilities":
-                self.layout.operator('mbast.button_utilities_on', icon=icon_expand)
-            else:
-                self.layout.operator('mbast.button_utilities_off', icon=icon_collapse)
-
-                box = self.layout.box()
-                box.label("Choose a proxy reference")
-                box.prop(scn, 'mblab_template_name')
-                box.operator('mbast.load_base_template')
-
-                box = self.layout.box()
-                box.label("Bones rot. offset")
-                box.operator('mbast.button_adjustrotation', icon='BONE_DATA')
-                mblab_retarget.check_correction_sync()
-                if mblab_retarget.is_animated_bone == "VALID_BONE":
-                    if mblab_retarget.correction_is_sync:
-                            box.prop(scn,'mblab_rot_offset_0')
-                            box.prop(scn,'mblab_rot_offset_1')
-                            box.prop(scn,'mblab_rot_offset_2')
+                if gui_active_panel_fin != "expressions":
+                    self.layout.operator('mbast.button_expressions_on', icon=icon_expand)
                 else:
-                    box.label(mblab_retarget.is_animated_bone)
+                    self.layout.operator('mbast.button_expressions_off', icon=icon_collapse)
+                    box = self.layout.box()
+                    mblab_shapekeys.update_expressions_data()
+                    if mblab_shapekeys.model_type != "NONE":
+                        box.enabled = True
+                        box.prop(scn, 'mblab_expression_filter')
+                        box.operator("mbast.keyframe_expression", icon="ACTION")
+                        if mblab_shapekeys.expressions_data:
+                            obj = algorithms.get_active_body()
+                            for expr_name in sorted(mblab_shapekeys.expressions_data.keys()):
+                                if hasattr(obj, expr_name):
+                                    if scn.mblab_expression_filter in expr_name:
+                                        box.prop(obj, expr_name)
+                        box.operator("mbast.reset_expression", icon="RECOVER_AUTO")
+                    else:
+                        box.enabled = False
+                        box.label("No express. shapekeys", icon = 'INFO')
+
+                if gui_active_panel_fin != "proxy_fit":
+                    self.layout.operator('mbast.button_proxy_fit_on', icon=icon_expand)
+                else:
+                    self.layout.operator('mbast.button_proxy_fit_off', icon=icon_collapse)
+                    fitting_status, proxy_obj, reference_obj = mblab_proxy.validate_proxy_fitting()
+
+                    box = self.layout.box()
+                    box.label("PROXY FITTING")
+
+                    if fitting_status == "NO_REFERENCE":
+                        box.enabled = False
+                        box.label("Fitting not available for selected objects.", icon="INFO")
+                        box.label("Possible reasons:")
+                        box.label("- Body created with a different lab version")
+                        box.label("- Body topology modified by custom modelling")
+                        box.label("- Selection of a non-mesh object")
+                        box.label("- Body topology altered by modifiers (decimator,subsurf, etc..)")
+                    if fitting_status == 'OK':
+                        box.enabled = True
+                        box.label("The proxy is ready for fitting.", icon="INFO")
+                        proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
+                        if proxy_compatib == "WARNING":
+                            box.label("The proxy is not designed for the selected character.", icon="ERROR")
+
+
+                        box.prop(scn,'mblab_proxy_offset')
+                        box.prop(scn,'mblab_proxy_threshold')
+                        box.prop(scn, 'mblab_add_mask_group')
+                        box.prop(scn, 'mblab_overwrite_proxy_weights')
+                        box.operator("mbast.proxy_fit", icon="MOD_CLOTH")
+                        box.operator("mbast.proxy_removefit", icon="MOD_CLOTH")
+                    if fitting_status == 'WRONG_SELECTION':
+                        box.enabled = False
+                        box.label("Please select only two objects: humanoid and proxy", icon="INFO")
+                    if fitting_status == 'NO_REFERENCE_SELECTED':
+                        box.enabled = False
+                        box.label("No valid humanoid template selected", icon="INFO")
+                    if fitting_status == 'NO_MESH_SELECTED':
+                        box.enabled = False
+                        box.label("Selected proxy is not a mesh", icon="INFO")
+
+                if gui_active_panel_fin != "utilities":
+                    self.layout.operator('mbast.button_utilities_on', icon=icon_expand)
+                else:
+                    self.layout.operator('mbast.button_utilities_off', icon=icon_collapse)
+
+                    box = self.layout.box()
+                    box.label("Choose a proxy reference")
+                    box.prop(scn, 'mblab_template_name')
+                    box.operator('mbast.load_base_template')
+
+                    box = self.layout.box()
+                    box.label("Bones rot. offset")
+                    box.operator('mbast.button_adjustrotation', icon='BONE_DATA')
+                    mblab_retarget.check_correction_sync()
+                    if mblab_retarget.is_animated_bone == "VALID_BONE":
+                        if mblab_retarget.correction_is_sync:
+                                box.prop(scn,'mblab_rot_offset_0')
+                                box.prop(scn,'mblab_rot_offset_1')
+                                box.prop(scn,'mblab_rot_offset_2')
+                    else:
+                        box.label(mblab_retarget.is_animated_bone)
 
 
         if gui_status == "ACTIVE_SESSION":
@@ -2203,21 +2214,23 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                 #box = self.layout.box()
 
                 if mblab_humanoid.exists_transform_database():
-                    self.layout.label("CREATION TOOLS")
-                    x_age = getattr(obj,'character_age',0)
-                    x_mass = getattr(obj,'character_mass',0)
-                    x_tone = getattr(obj,'character_tone',0)
-                    age_lbl = round((15.5*x_age**2)+31*x_age+33)
-                    mass_lbl = round(50*(x_mass+1))
-                    tone_lbl = round(50*(x_tone+1))
-                    lbl_text = "Age: {0}y  Mass: {1}%  Tone: {2}% ".format(age_lbl,mass_lbl,tone_lbl)
-                    self.layout.label(lbl_text,icon="RNA")
-                    for meta_data_prop in sorted(mblab_humanoid.character_metaproperties.keys()):
-                        if "last" not in meta_data_prop:
-                            self.layout.prop(obj, meta_data_prop)
+                    if advanced_mode_is_on:
+                        self.layout.label("CREATION TOOLS")
+                        x_age = getattr(obj,'character_age',0)
+                        x_mass = getattr(obj,'character_mass',0)
+                        x_tone = getattr(obj,'character_tone',0)
+                        age_lbl = round((15.5*x_age**2)+31*x_age+33)
+                        mass_lbl = round(50*(x_mass+1))
+                        tone_lbl = round(50*(x_tone+1))
+                        lbl_text = "Age: {0}y  Mass: {1}%  Tone: {2}% ".format(age_lbl,mass_lbl,tone_lbl)
+                        self.layout.label(lbl_text,icon="RNA")
+                        for meta_data_prop in sorted(mblab_humanoid.character_metaproperties.keys()):
+                            if "last" not in meta_data_prop:
+                                self.layout.prop(obj, meta_data_prop)
                     self.layout.operator("mbast.reset_allproperties", icon="LOAD_FACTORY")
-                    if mblab_humanoid.get_subd_visibility() == True:
-                        self.layout.label("Tip: for slow PC, disable the subdivision in Display Options below", icon='INFO')
+                    if advanced_mode_is_on:
+                        if mblab_humanoid.get_subd_visibility() == True:
+                            self.layout.label("Tip: for slow PC, disable the subdivision in Display Options below", icon='INFO')
 
                 if gui_active_panel != "library":
                     self.layout.operator('mbast.button_library_on', icon=icon_expand)
@@ -2230,30 +2243,32 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         box.prop(obj, "preset")
                     if mblab_humanoid.exists_phenotype_database():
                         box.prop(obj, "ethnic")
-                    box.prop(scn, 'mblab_mix_characters')
+                    if advanced_mode_is_on:
+                        box.prop(scn, 'mblab_mix_characters')
 
-                if gui_active_panel != "random":
-                    self.layout.operator('mbast.button_random_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_random_off', icon=icon_collapse)
+                if advanced_mode_is_on:
+                    if gui_active_panel != "random":
+                        self.layout.operator('mbast.button_random_on', icon=icon_expand)
+                    else:
+                        self.layout.operator('mbast.button_random_off', icon=icon_collapse)
 
-                    box = self.layout.box()
-                    box.prop(scn, "mblab_random_engine")
-                    box.prop(scn, "mblab_set_tone_and_mass")
-                    if scn.mblab_set_tone_and_mass:
-                        box.prop(scn, "mblab_body_mass")
-                        box.prop(scn, "mblab_body_tone")
+                        box = self.layout.box()
+                        box.prop(scn, "mblab_random_engine")
+                        box.prop(scn, "mblab_set_tone_and_mass")
+                        if scn.mblab_set_tone_and_mass:
+                            box.prop(scn, "mblab_body_mass")
+                            box.prop(scn, "mblab_body_tone")
 
-                    box.label("Preserve:")
-                    box.prop(scn, "mblab_preserve_mass")
-                    box.prop(scn, "mblab_preserve_height")
-                    box.prop(scn, "mblab_preserve_tone")
-                    box.prop(scn, "mblab_preserve_body")
-                    box.prop(scn, "mblab_preserve_face")
-                    box.prop(scn, "mblab_preserve_phenotype")
-                    box.prop(scn, "mblab_preserve_fantasy")
+                        box.label("Preserve:")
+                        box.prop(scn, "mblab_preserve_mass")
+                        box.prop(scn, "mblab_preserve_height")
+                        box.prop(scn, "mblab_preserve_tone")
+                        box.prop(scn, "mblab_preserve_body")
+                        box.prop(scn, "mblab_preserve_face")
+                        box.prop(scn, "mblab_preserve_phenotype")
+                        box.prop(scn, "mblab_preserve_fantasy")
 
-                    box.operator('mbast.character_generator', icon="FILE_REFRESH")
+                        box.operator('mbast.character_generator', icon="FILE_REFRESH")
 
                 if gui_active_panel != "parameters":
                     self.layout.operator('mbast.button_parameters_on', icon=icon_expand)
@@ -2305,18 +2320,19 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     sub.label("RESET")
                     sub.operator("mbast.reset_categoryonly")
 
-                if mblab_humanoid.exists_measure_database():
-                    if gui_active_panel != "automodelling":
-                        self.layout.operator('mbast.button_automodelling_on', icon=icon_expand)
+                if advanced_mode_is_on:
+                    if mblab_humanoid.exists_measure_database():
+                        if gui_active_panel != "automodelling":
+                            self.layout.operator('mbast.button_automodelling_on', icon=icon_expand)
+                        else:
+                            self.layout.operator('mbast.button_automodelling_off', icon=icon_collapse)
+                            box = self.layout.box()
+                            box.operator("mbast.auto_modelling")
+                            box.operator("mbast.auto_modelling_mix")
                     else:
-                        self.layout.operator('mbast.button_automodelling_off', icon=icon_collapse)
                         box = self.layout.box()
-                        box.operator("mbast.auto_modelling")
-                        box.operator("mbast.auto_modelling_mix")
-                else:
-                    box = self.layout.box()
-                    box.enabled = False
-                    box.label("Automodelling not available for this character", icon='INFO')
+                        box.enabled = False
+                        box.label("Automodelling not available for this character", icon='INFO')
 
                 # if mblab_humanoid.exists_rest_poses_database():
                 #     if gui_active_panel != "rest_pose":
@@ -2335,66 +2351,68 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                 #             box.operator("mbast.restpose_load")
                 #             box.operator("mbast.restpose_save")
 
+                if advanced_mode_is_on:
+                    if gui_active_panel != "skin":
+                        self.layout.operator('mbast.button_skin_on', icon=icon_expand)
+                    else:
+                        self.layout.operator('mbast.button_skin_off', icon=icon_collapse)
 
-                if gui_active_panel != "skin":
-                    self.layout.operator('mbast.button_skin_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_skin_off', icon=icon_collapse)
-
-                    box = self.layout.box()
-                    box.enabled = True
-                    if scn.render.engine != 'CYCLES':
-                        box.enabled = False
-                        box.label("Skin editor requires Cycles", icon='INFO')
-
-                    if mblab_humanoid.exists_displace_texture():
-                        box.operator("mbast.skindisplace_calculate")
-                        box.label("You need to enable subdiv and displ to see the displ in viewport", icon='INFO')
-
-                    for material_data_prop in sorted(mblab_humanoid.character_material_properties.keys()):
-                        box.prop(obj, material_data_prop)
-
-                    box.prop(scn, 'mblab_show_texture_load_save')
-                    if scn.mblab_show_texture_load_save:
-
-                        if mblab_humanoid.exists_dermal_texture():
-                            sub = box.box()
-                            sub.label("Dermal texture")
-                            sub.operator("mbast.export_dermimage", icon='EXPORT')
-                            sub.operator("mbast.import_dermal", icon='IMPORT')
+                        box = self.layout.box()
+                        box.enabled = True
+                        if scn.render.engine != 'CYCLES':
+                            box.enabled = False
+                            box.label("Skin editor requires Cycles", icon='INFO')
 
                         if mblab_humanoid.exists_displace_texture():
+                            box.operator("mbast.skindisplace_calculate")
+                            box.label("You need to enable subdiv and displ to see the displ in viewport", icon='INFO')
+
+                        for material_data_prop in sorted(mblab_humanoid.character_material_properties.keys()):
+                            box.prop(obj, material_data_prop)
+
+                        box.prop(scn, 'mblab_show_texture_load_save')
+                        if scn.mblab_show_texture_load_save:
+
+                            if mblab_humanoid.exists_dermal_texture():
+                                sub = box.box()
+                                sub.label("Dermal texture")
+                                sub.operator("mbast.export_dermimage", icon='EXPORT')
+                                sub.operator("mbast.import_dermal", icon='IMPORT')
+
+                            if mblab_humanoid.exists_displace_texture():
+                                sub = box.box()
+                                sub.label("Displacement texture")
+                                sub.operator("mbast.export_dispimage", icon='EXPORT')
+                                sub.operator("mbast.import_displacement", icon='IMPORT')
+
                             sub = box.box()
-                            sub.label("Displacement texture")
-                            sub.operator("mbast.export_dispimage", icon='EXPORT')
-                            sub.operator("mbast.import_displacement", icon='IMPORT')
+                            sub.label("Export all images used in skin shader")
+                            sub.operator("mbast.export_allimages", icon='EXPORT')
 
-                        sub = box.box()
-                        sub.label("Export all images used in skin shader")
-                        sub.operator("mbast.export_allimages", icon='EXPORT')
-
-                if gui_active_panel != "file":
-                    self.layout.operator('mbast.button_file_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_file_off', icon=icon_collapse)
-                    box = self.layout.box()
-                    box.prop(scn, 'mblab_export_proportions')
-                    box.prop(scn, 'mblab_export_materials')
-                    box.operator("mbast.export_character", icon='EXPORT')
-                    box.operator("mbast.import_character", icon='IMPORT')
-
-                if gui_active_panel != "finalize":
-                    self.layout.operator('mbast.button_finalize_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_finalize_off', icon=icon_collapse)
-                    box = self.layout.box()
-                    box.prop(scn, 'mblab_save_images_and_backup')
-                    box.prop(scn,'mblab_remove_all_modifiers')
-                    box.prop(scn,'mblab_final_prefix')
-                    if scn.mblab_save_images_and_backup:
-                        box.operator("mbast.finalize_character_and_images", icon='FREEZE')
+                if advanced_mode_is_on:
+                    if gui_active_panel != "file":
+                        self.layout.operator('mbast.button_file_on', icon=icon_expand)
                     else:
-                        box.operator("mbast.finalize_character", icon='FREEZE')
+                        self.layout.operator('mbast.button_file_off', icon=icon_collapse)
+                        box = self.layout.box()
+                        box.prop(scn, 'mblab_export_proportions')
+                        box.prop(scn, 'mblab_export_materials')
+                        box.operator("mbast.export_character", icon='EXPORT')
+                        box.operator("mbast.import_character", icon='IMPORT')
+
+                if advanced_mode_is_on:
+                    if gui_active_panel != "finalize":
+                        self.layout.operator('mbast.button_finalize_on', icon=icon_expand)
+                    else:
+                        self.layout.operator('mbast.button_finalize_off', icon=icon_collapse)
+                        box = self.layout.box()
+                        box.prop(scn, 'mblab_save_images_and_backup')
+                        box.prop(scn,'mblab_remove_all_modifiers')
+                        box.prop(scn,'mblab_final_prefix')
+                        if scn.mblab_save_images_and_backup:
+                            box.operator("mbast.finalize_character_and_images", icon='FREEZE')
+                        else:
+                            box.operator("mbast.finalize_character", icon='FREEZE')
 
                 if gui_active_panel != "display_opt":
                     self.layout.operator('mbast.button_display_on', icon=icon_expand)
@@ -2422,9 +2440,10 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                 self.layout.operator('wellvr.return_to_init_screen')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
-                self.layout.label(" ")
-                self.layout.label("AFTER-CREATION TOOLS")
-                self.layout.label("After-creation tools (expressions, poses, ecc..) not available for unfinalized characters", icon="INFO")
+                if advanced_mode_is_on:
+                    self.layout.label(" ")
+                    self.layout.label("AFTER-CREATION TOOLS")
+                    self.layout.label("After-creation tools (expressions, poses, ecc..) not available for unfinalized characters", icon="INFO")
 
             else:
                 gui_status = "NEW_SESSION"
