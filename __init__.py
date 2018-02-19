@@ -176,6 +176,17 @@ def start_lab_session():
 
             algorithms.deselect_all_objects()
 
+            if mblab_humanoid.get_subd_visibility() == True:
+                mblab_humanoid.set_subd_visibility(False)
+            if mblab_humanoid.get_smooth_visibility() == True:
+                mblab_humanoid.set_smooth_visibility(False)
+
+            for area in bpy.context.screen.areas: # iterate through areas in current screen
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces: # iterate through spaces in current VIEW_3D area
+                        if space.type == 'VIEW_3D': # check if space is a 3D view
+                            space.viewport_shade = 'TEXTURED' # set the viewport shading to rendered
+
 
 
 
@@ -484,6 +495,32 @@ def generate_previews():
 
     return enum_items
 
+def save_metadata_json(filepath):
+
+    dir_path = os.path.dirname(filepath)
+    filename = os.path.basename(filepath)
+    filename_root = os.path.splitext(filename)[0]
+    new_filename = filename_root + '_metadata.json'
+    new_filepath = os.path.join(dir_path,new_filename)
+
+    scene = bpy.context.scene
+    if "f_" in scene.mblab_character_name:
+        char_gender = "female"
+    elif "m_" in scene.mblab_character_name:
+        char_gender = "male"
+    else:
+        char_gender = "non-binary"
+
+    obj = mblab_humanoid.get_object()
+    char_ethnic_group = obj.ethnic
+    char_body_preset = obj.preset
+
+    char_data = {"manuellab_vers": mblab_humanoid.lab_vers, "gender": char_gender, "ethnic_group": char_ethnic_group, "body_preset": char_body_preset}
+
+    output_file = open(new_filepath, 'w')
+    json.dump(char_data, output_file)
+    output_file.close()
+
 init_expression_props()
 
 bpy.types.Scene.mblab_final_prefix = bpy.props.StringProperty(
@@ -776,7 +813,7 @@ class ExportToUnrealButton(bpy.types.Operator):
             raise Exception("Blend file is not saved")
         filename = str(uuid.uuid4())
         fn = os.path.join(basedir, filename)
-        bpy.ops.export_scene.fbx(filepath=fn + ".fbx")
+        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0)
 
         print("written:", fn)
 
@@ -784,6 +821,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         basedir = os.path.join(basedir, filename)
 
         mblab_humanoid.save_backup_character(basedir)
+        save_metadata_json(basedir)
         mblab_humanoid.save_all_textures(basedir)
 
         # mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
@@ -792,7 +830,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         # mblab_humanoid.update_bendy_muscles()
         # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
-        # gui_status = "NEW_SESSION"
+        gui_status = "NEW_SESSION"
 
         return {'FINISHED'}
 
@@ -805,15 +843,15 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
 
         scene = bpy.context.scene
         for character in mblab_humanoid.humanoid_types:
+            print(character)
             if (character[0] == 'm_af01'):
-                print(character)
                 scene.mblab_character_name = character[0]
                 bpy.ops.mbast.init_character('INVOKE_DEFAULT')
                 if mblab_humanoid.exists_phenotype_database():
                     ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
                     for phenotype in ethnic_items:
                         print (phenotype)
-                        if humanoid_instance.exists_preset_database():
+                        if mblab_humanoid.exists_preset_database():
                             preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
                             for preset in preset_items:
                                 print (preset)
@@ -2414,30 +2452,31 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         else:
                             box.operator("mbast.finalize_character", icon='FREEZE')
 
-                if gui_active_panel != "display_opt":
-                    self.layout.operator('mbast.button_display_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_display_off', icon=icon_collapse)
-                    box = self.layout.box()
+                if advanced_mode_is_on:
+                    if gui_active_panel != "display_opt":
+                        self.layout.operator('mbast.button_display_on', icon=icon_expand)
+                    else:
+                        self.layout.operator('mbast.button_display_off', icon=icon_collapse)
+                        box = self.layout.box()
 
-                    if mblab_humanoid.exists_displace_texture():
-                        if mblab_humanoid.get_disp_visibility() == False:
-                            box.operator("mbast.displacement_enable", icon='MOD_DISPLACE')
+                        if mblab_humanoid.exists_displace_texture():
+                            if mblab_humanoid.get_disp_visibility() == False:
+                                box.operator("mbast.displacement_enable", icon='MOD_DISPLACE')
+                            else:
+                                box.operator("mbast.displacement_disable", icon='X')
+                        if mblab_humanoid.get_subd_visibility() == False:
+                            box.operator("mbast.subdivision_enable", icon='MOD_SUBSURF')
+                            box.label("Subd. preview is very CPU intensive", icon='INFO')
                         else:
-                            box.operator("mbast.displacement_disable", icon='X')
-                    if mblab_humanoid.get_subd_visibility() == False:
-                        box.operator("mbast.subdivision_enable", icon='MOD_SUBSURF')
-                        box.label("Subd. preview is very CPU intensive", icon='INFO')
-                    else:
-                        box.operator("mbast.subdivision_disable", icon='X')
-                        box.label("Disable subdivision to increase the performance", icon='ERROR')
-                    if mblab_humanoid.get_smooth_visibility() == False:
-                        box.operator("mbast.corrective_enable", icon='MOD_SMOOTH')
-                    else:
-                        box.operator("mbast.corrective_disable", icon='X')
+                            box.operator("mbast.subdivision_disable", icon='X')
+                            box.label("Disable subdivision to increase the performance", icon='ERROR')
+                        if mblab_humanoid.get_smooth_visibility() == False:
+                            box.operator("mbast.corrective_enable", icon='MOD_SMOOTH')
+                        else:
+                            box.operator("mbast.corrective_disable", icon='X')
 
                 # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
-                self.layout.operator('wellvr.return_to_init_screen')
+                # self.layout.operator('wellvr.return_to_init_screen')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
                 if advanced_mode_is_on:
