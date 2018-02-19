@@ -830,7 +830,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         # mblab_humanoid.update_bendy_muscles()
         # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
-        gui_status = "NEW_SESSION"
+        # gui_status = "NEW_SESSION"
 
         return {'FINISHED'}
 
