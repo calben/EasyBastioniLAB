@@ -84,6 +84,11 @@ mblab_proxy = proxyengine.ProxyEngine()
 
 #wellvr global variables
 advanced_mode_is_on = False
+camHeadLocation = (0.237952, -0.729473, 1.55963)
+camHeadRotation = (89.3, 0, 19.2)
+camBodyLocation = (0.230644, -3.70173, 1.30249)
+camBodyRotation = (82.5, 0, 2.92)
+camOnBody = False
 
 gui_status = "NEW_SESSION"
 gui_err_msg = ""
@@ -181,12 +186,18 @@ def start_lab_session():
             if mblab_humanoid.get_smooth_visibility() == True:
                 mblab_humanoid.set_smooth_visibility(False)
 
+            # Set shader to material
             for area in bpy.context.screen.areas: # iterate through areas in current screen
                 if area.type == 'VIEW_3D':
                     for space in area.spaces: # iterate through spaces in current VIEW_3D area
                         if space.type == 'VIEW_3D': # check if space is a 3D view
-                            space.viewport_shade = 'TEXTURED' # set the viewport shading to rendered
+                            space.viewport_shade = 'MATERIAL' # set the viewport shading to material
 
+            if(len(bpy.data.cameras) == 1):
+                camObj = bpy.data.objects['Camera']
+                camObj.location = camHeadLocation
+                x,y,z = camHeadRotation
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
 
 
 
@@ -478,8 +489,8 @@ def angle_update_2(self, context):
     value = scn.mblab_rot_offset_2
     mblab_retarget.correct_bone_angle(2,value)
 
-def generate_previews():
-    pcoll = preview_collections["thumbnail_previews"]
+def generate_skin_previews():
+    pcoll = preview_collections["skin_previews"]
     image_location = pcoll.images_location
     VALID_EXTENSIONS = ('.png', '.jpg', '.jpeg')
 
@@ -491,9 +502,41 @@ def generate_previews():
             filepath = os.path.join(image_location, image)
             thumb = pcoll.load(filepath, filepath, 'IMAGE')
             enum_items.append((image, image, "", thumb.icon_id, i))
-            break
 
     return enum_items
+
+def skin_previews_update(self, context):
+    global mblab_humanoid
+    # place skin complexion and hue in the .png's name!
+    selected_skin_preview_name = bpy.context.scene.skin_previews
+    split_skin_preview_name = selected_skin_preview_name.replace('.', '_')
+    split_skin_preview_name = split_skin_preview_name.split('_')
+    for split_value in split_skin_preview_name:
+        if 'complexion' in split_value:
+            split_complexion = split_value.split('-')
+            complexion_value = int(split_complexion[1])
+            complexion_value /= 1000
+            mblab_humanoid.character_material_properties['skin_complexion'] = complexion_value
+        if 'hue' in split_value:
+            split_hue = split_value.split('-')
+            hue_value = int(split_hue[1])
+            hue_value /= 1000
+            mblab_humanoid.character_material_properties['skin_hue'] = hue_value
+
+    mblab_humanoid.material_realtime_activated = False
+    obj = mblab_humanoid.get_object()
+    for material_data_prop, value in mblab_humanoid.character_material_properties.items():
+        if 'skin_hue' in material_data_prop or 'skin_complexion' in material_data_prop:
+            if hasattr(obj, material_data_prop):
+                setattr(obj, material_data_prop, value)
+            else:
+                lab_logger.warning("material {0}  not found".format(material_data_prop))
+
+    mblab_humanoid.material_realtime_activated = True
+    mblab_humanoid.update_materials()
+
+
+
 
 def save_metadata_json(filepath):
 
@@ -929,6 +972,27 @@ class ReturnToInitScreen(bpy.types.Operator):
         gui_status = "NEW_SESSION"
         return{'FINISHED'}
 
+class SwitchCameraViewButton(bpy.types.Operator):
+    bl_idname = "wellvr.switch_camera_view_button"
+    bl_label = "Switch Camera"
+
+    def execute(self, context):
+        global camOnBody
+        if(len(bpy.data.cameras) == 1):
+            if not camOnBody:
+                camObj = bpy.data.objects['Camera']
+                camObj.location = camBodyLocation
+                x,y,z = camBodyRotation
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+                camOnBody = True
+            else:
+                camObj = bpy.data.objects['Camera']
+                camObj.location = camHeadLocation
+                x,y,z = camHeadRotation
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+                camOnBody = False
+        return{'FINISHED'}
+
 class TakePicturesWithCamera(bpy.types.Operator):
     bl_idname = "wellvr.take_pictures_with_camera_button"
     bl_label = "Take Pictures with Camera"
@@ -992,18 +1056,6 @@ class TakePicturesWithCamera(bpy.types.Operator):
                     mblab_humanoid.update_character(category_name = key, mode="update_all")
                     print('\n')
             print("Total props imaged:", prop_count)
-
-        # scene = bpy.context.scene
-        # obj = bpy.context.object
-        # co = bpy.context.scene.cursor_location
-        #
-        # co_2d = bpy_extras.object_utils.world_to_camera_view(scene, camObj, co)
-        # print("2D Coords:", co_2d)
-
-        # If you want pixel coords
-        # render_scale = scene.render.resolution_percentage / 100
-        # render_size = (int(scene.render.resolution_x * render_scale), int(scene.render.resolution_y * render_scale), )
-        # print("Pixel Coords:", (round(co_2d.x * render_size[0]), round(co_2d.y * render_size[1]), ))
         return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
@@ -1206,7 +1258,7 @@ class ButtonPoseOn(bpy.types.Operator):
 
 
 class ButtonSkinOff(bpy.types.Operator):
-    bl_label = 'Skin editor'
+    bl_label = 'Skin and eyes editor'
     bl_idname = 'mbast.button_skin_off'
     bl_description = 'Close skin editor panel'
     bl_context = 'objectmode'
@@ -1218,7 +1270,7 @@ class ButtonSkinOff(bpy.types.Operator):
         return {'FINISHED'}
 
 class ButtonSkinOn(bpy.types.Operator):
-    bl_label = 'Skin editor'
+    bl_label = 'Skin and eyes editor'
     bl_idname = 'mbast.button_skin_on'
     bl_description = 'Open skin editor panel'
     bl_context = 'objectmode'
@@ -2427,6 +2479,16 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                             sub.label("Export all images used in skin shader")
                             sub.operator("mbast.export_allimages", icon='EXPORT')
 
+                # advanced_mode_is_on is false; show the skin and eye previews
+                else:
+                    if gui_active_panel != "skin":
+                        self.layout.operator('mbast.button_skin_on', icon=icon_expand)
+                    else:
+                        self.layout.operator('mbast.button_skin_off', icon=icon_collapse)
+                        row = self.layout.row()
+                        row.template_icon_view(scn, "skin_previews")
+
+
                 if advanced_mode_is_on:
                     if gui_active_panel != "file":
                         self.layout.operator('mbast.button_file_on', icon=icon_expand)
@@ -2477,6 +2539,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
                 # self.layout.operator('wellvr.return_to_init_screen')
+                self.layout.operator('wellvr.switch_camera_view_button',icon='CAMERA_DATA')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
                 if advanced_mode_is_on:
@@ -2504,10 +2567,12 @@ def register():
     bpy.utils.register_module(__name__)
     pcoll = bpy.utils.previews.new()
 
-    pcoll.images_location = os.path.join(os.path.dirname(__file__), "images")
-    preview_collections["thumbnail_previews"] = pcoll
-    bpy.types.Scene.my_thumbnails = EnumProperty(
-        items=generate_previews(),
+    # Generate list for
+    pcoll.images_location = os.path.join(os.path.dirname(__file__), "images/skin_previews")
+    preview_collections["skin_previews"] = pcoll
+    bpy.types.Scene.skin_previews = EnumProperty(
+        items=generate_skin_previews(),
+        update=skin_previews_update
     )
 
 def unregister():
@@ -2519,7 +2584,7 @@ def unregister():
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)
     preview_collections.clear()
-    del bpy.types.Scene.my_thumbnails
+    del bpy.types.Scene.skin_previews
 
     bpy.utils.unregister_module(__name__)
 
