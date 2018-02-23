@@ -37,6 +37,7 @@ import logging
 #new imports - EasyBastioniLAB
 import bpy.utils.previews
 import bpy_extras
+import mathutils
 from math import radians
 import uuid
 
@@ -84,11 +85,7 @@ mblab_proxy = proxyengine.ProxyEngine()
 
 #wellvr global variables
 advanced_mode_is_on = False
-camHeadLocation = (0.237952, -0.729473, 1.55963)
-camHeadRotation = (89.3, 0, 19.2)
-camBodyLocation = (0.230644, -3.70173, 1.30249)
-camBodyRotation = (82.5, 0, 2.92)
-camOnBody = False
+viewOnBody = 0
 
 gui_status = "NEW_SESSION"
 gui_err_msg = ""
@@ -193,11 +190,12 @@ def start_lab_session():
                         if space.type == 'VIEW_3D': # check if space is a 3D view
                             space.viewport_shade = 'MATERIAL' # set the viewport shading to material
 
-            if(len(bpy.data.cameras) == 1):
-                camObj = bpy.data.objects['Camera']
-                camObj.location = camHeadLocation
-                x,y,z = camHeadRotation
-                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+            v3d = bpy.context.space_data
+            rv3d = v3d.region_3d
+            rv3d.view_distance = 2
+            rv3d.view_location.z = 1
+            eul = mathutils.Euler((radians(75), 0.0, 0.0), 'XYZ')
+            rv3d.view_rotation = eul.to_quaternion()
 
 
 
@@ -972,25 +970,32 @@ class ReturnToInitScreen(bpy.types.Operator):
         gui_status = "NEW_SESSION"
         return{'FINISHED'}
 
-class SwitchCameraViewButton(bpy.types.Operator):
-    bl_idname = "wellvr.switch_camera_view_button"
-    bl_label = "Switch Camera"
+class SwitchViewButton(bpy.types.Operator):
+    bl_idname = "wellvr.switch_view_button"
+    bl_label = "Switch View"
 
     def execute(self, context):
-        global camOnBody
-        if(len(bpy.data.cameras) == 1):
-            if not camOnBody:
-                camObj = bpy.data.objects['Camera']
-                camObj.location = camBodyLocation
-                x,y,z = camBodyRotation
-                camObj.rotation_euler = (radians(x), radians(y), radians(z))
-                camOnBody = True
-            else:
-                camObj = bpy.data.objects['Camera']
-                camObj.location = camHeadLocation
-                x,y,z = camHeadRotation
-                camObj.rotation_euler = (radians(x), radians(y), radians(z))
-                camOnBody = False
+        global viewOnBody
+        v3d = bpy.context.space_data
+        rv3d = v3d.region_3d
+        if viewOnBody == 0:
+            rv3d.view_distance = 2
+            rv3d.view_location.z = 1
+            eul = mathutils.Euler((radians(75), 0.0, 0.0), 'XYZ')
+        elif viewOnBody == 1:
+            rv3d.view_distance = 0.6
+            rv3d.view_location.z = 1.5
+            eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
+        elif viewOnBody == 2:
+            rv3d.view_distance = 0.6
+            rv3d.view_location.z = 1.5
+            eul = mathutils.Euler((radians(80), 0.0, radians(25)), 'XYZ')
+        elif viewOnBody == 3:
+            rv3d.view_distance = 0.6
+            rv3d.view_location.z = 1.5
+            eul = mathutils.Euler((radians(80), 0.0, radians(-25)), 'XYZ')
+        rv3d.view_rotation = eul.to_quaternion()
+        viewOnBody = (viewOnBody + 1) % 4
         return{'FINISHED'}
 
 class TakePicturesWithCamera(bpy.types.Operator):
@@ -2539,7 +2544,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
                 # self.layout.operator('wellvr.return_to_init_screen')
-                self.layout.operator('wellvr.switch_camera_view_button',icon='CAMERA_DATA')
+                self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
                 self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
                 if advanced_mode_is_on:
