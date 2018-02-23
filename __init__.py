@@ -976,6 +976,7 @@ class SwitchViewButton(bpy.types.Operator):
 
     def execute(self, context):
         global viewOnBody
+        viewOnBody = (viewOnBody + 1) % 4
         v3d = bpy.context.space_data
         rv3d = v3d.region_3d
         if viewOnBody == 0:
@@ -995,7 +996,6 @@ class SwitchViewButton(bpy.types.Operator):
             rv3d.view_location.z = 1.5
             eul = mathutils.Euler((radians(80), 0.0, radians(-25)), 'XYZ')
         rv3d.view_rotation = eul.to_quaternion()
-        viewOnBody = (viewOnBody + 1) % 4
         return{'FINISHED'}
 
 class TakePicturesWithCamera(bpy.types.Operator):
@@ -1085,8 +1085,17 @@ class ButtonParametersOn(bpy.types.Operator):
 
     def execute(self, context):
         global gui_active_panel
+        global viewOnBody
         gui_active_panel = "parameters"
         sync_character_to_props()
+
+        v3d = bpy.context.space_data
+        rv3d = v3d.region_3d
+        rv3d.view_distance = 0.6
+        rv3d.view_location.z = 1.5
+        eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
+        rv3d.view_rotation = eul.to_quaternion()
+        viewOnBody = 1
         return {'FINISHED'}
 
 class ButtonUtilitiesOff(bpy.types.Operator):
@@ -1283,7 +1292,16 @@ class ButtonSkinOn(bpy.types.Operator):
 
     def execute(self, context):
         global gui_active_panel
+        global viewOnBody
         gui_active_panel = 'skin'
+
+        v3d = bpy.context.space_data
+        rv3d = v3d.region_3d
+        rv3d.view_distance = 0.6
+        rv3d.view_location.z = 1.5
+        eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
+        rv3d.view_rotation = eul.to_quaternion()
+        viewOnBody = 1
         return {'FINISHED'}
 
 class ButtonViewOptOff(bpy.types.Operator):
@@ -1407,7 +1425,16 @@ class ButtonLibraryOn(bpy.types.Operator):
 
     def execute(self, context):
         global gui_active_panel
+        global viewOnBody
         gui_active_panel = 'library'
+
+        v3d = bpy.context.space_data
+        rv3d = v3d.region_3d
+        rv3d.view_distance = 2
+        rv3d.view_location.z = 1
+        eul = mathutils.Euler((radians(75), 0.0, 0.0), 'XYZ')
+        rv3d.view_rotation = eul.to_quaternion()
+        viewOnBody = 0
         return {'FINISHED'}
 
 class ButtonFinalizedCorrectRot(bpy.types.Operator):
