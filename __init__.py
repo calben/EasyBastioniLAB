@@ -854,7 +854,7 @@ class ExportToUnrealButton(bpy.types.Operator):
             raise Exception("Blend file is not saved")
         filename = str(uuid.uuid4())
         fn = os.path.join(basedir, filename)
-        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0)
+        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
         print("written:", fn)
 
