@@ -807,6 +807,14 @@ class ExportToUnrealButton(bpy.types.Operator):
     bl_idname = "wellvr.export_to_unreal"
     bl_label = "Export To Unreal"
 
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        col = self.layout.column(align = True)
+        col.prop(context.scene, "name_input_prop")
+
     def execute(self, context):
         global mblab_humanoid
         global gui_status
@@ -829,6 +837,8 @@ class ExportToUnrealButton(bpy.types.Operator):
         print("Ran bone_rename_script")
 
         #Transform and save
+        bpy.context.scene.unit_settings.system = 'METRIC'
+        bpy.context.scene.unit_settings.scale_length = 0.01
         k = 100 #scale constant
         for ob in bpy.data.objects:
             ob.select = True
@@ -846,13 +856,14 @@ class ExportToUnrealButton(bpy.types.Operator):
         mblab_humanoid.update_materials()
 
 
-        basedir = os.path.join(os.path.dirname(__file__), "exports")
+        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
         if not os.path.exists(basedir):
             os.makedirs(basedir)
         # basedir = os.path.dirname(bpy.data.filepath)
         if not basedir:
             raise Exception("Blend file is not saved")
-        filename = str(uuid.uuid4())
+        # filename = str(uuid.uuid4())
+        filename = context.scene.name_input_prop
         fn = os.path.join(basedir, filename)
         bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
@@ -2593,6 +2604,13 @@ def register():
     global custom_icons
     global preview_collections
 
+    bpy.types.Scene.name_input_prop = bpy.props.StringProperty \
+      (
+        name = "Name input",
+        description = "My description",
+        default = "default"
+      )
+
     custom_icons = bpy.utils.previews.new()
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     custom_icons.load("custom_icon", os.path.join(icons_dir, "icon.png"), 'IMAGE')
@@ -2611,6 +2629,8 @@ def unregister():
     global custom_icons
     global preview_collections
 
+
+    del bpy.types.Scene.name_input_prop
     bpy.utils.previews.remove(custom_icons)
 
     for pcoll in preview_collections.values():
