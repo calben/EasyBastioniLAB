@@ -41,6 +41,7 @@ import mathutils
 from math import radians
 import uuid
 import re
+import subprocess
 
 #import cProfile, pstats, io
 #import faulthandler
@@ -820,14 +821,18 @@ class ExportToUnrealButton(bpy.types.Operator):
         global mblab_humanoid
         global gui_status
 
-
+        # cmd = 'echo $HOME'
+        # print (subprocess.check_output(cmd, shell=True))
+        # subprocess.call('echo', shell=True)
+        # return {'FINISHED'}
         # Get filename from user input. If empty or containing non-alphanumerical letters or underscores, don't export
         # filename = str(uuid.uuid4())
         filename = context.scene.name_input_prop
         if (filename == ''):
             self.report({'INFO'}, "Please enter a name for the character")
             return {'CANCELLED'}
-        if (not re.match(r'^\w+$', filename)):
+        ex = filename.rstrip()
+        if (not re.match(r'^[a-zA-Z0-9][ A-Za-z0-9_-]*$', ex)):
             self.report({'INFO'}, "Alphanumeric characters and underscores only")
             return {'CANCELLED'}
 
@@ -897,13 +902,9 @@ class ExportToUnrealButton(bpy.types.Operator):
 
         print("written:", fn)
 
-        # mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
-        # mblab_humanoid.delete_all_properties()
-        # mblab_humanoid.rename_materials(scn.mblab_final_prefix)
-        # mblab_humanoid.update_bendy_muscles()
-        # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
-        # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
-        # gui_status = "NEW_SESSION"
+        # Set scene back to normal
+        bpy.ops.object.delete()
+        scn.unit_settings.scale_length = 1
 
         return {'FINISHED'}
 
@@ -2444,10 +2445,11 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         if hasattr(obj, prop):
                             row = col.row()
                             row.scale_y = 2.5
-                            row.operator("wellvr.generic_morph_button_minus", text=prop+"_Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            prop_name = prop.replace("_", " ")
+                            row.operator("wellvr.generic_morph_button_minus", text=prop_name+" Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
                             row2 = col2.row()
                             row2.scale_y = 2.5
-                            row2.operator("wellvr.generic_morph_button_plus", text=prop+"_Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            row2.operator("wellvr.generic_morph_button_plus", text=prop_name+" Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
 
                     if mblab_humanoid.exists_measure_database() and scn.mblab_show_measures:
                         col = split.column()
