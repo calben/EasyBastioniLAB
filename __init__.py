@@ -40,6 +40,7 @@ import bpy_extras
 import mathutils
 from math import radians
 import uuid
+import re
 
 #import cProfile, pstats, io
 #import faulthandler
@@ -819,6 +820,45 @@ class ExportToUnrealButton(bpy.types.Operator):
         global mblab_humanoid
         global gui_status
 
+
+        # Get filename from user input. If empty or containing non-alphanumerical letters or underscores, don't export
+        # filename = str(uuid.uuid4())
+        filename = context.scene.name_input_prop
+        if (filename == ''):
+            self.report({'INFO'}, "Please enter a name for the character")
+            return {'CANCELLED'}
+        if (not re.match(r'^\w+$', filename)):
+            self.report({'INFO'}, "Alphanumeric characters and underscores only")
+            return {'CANCELLED'}
+
+        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+        # basedir = os.path.dirname(bpy.data.filepath)
+        if not basedir:
+            raise Exception("Blend file is not saved")
+
+        png_filename = filename + ".png"
+        png_basedir = os.path.join(basedir, png_filename)
+
+        scn = bpy.context.scene
+
+        mblab_humanoid.correct_expressions(correct_all=True)
+        mblab_humanoid.remove_modifiers()
+        mblab_humanoid.sync_internal_data_with_mesh()
+        mblab_humanoid.update_displacement()
+        mblab_humanoid.update_materials()
+        mblab_humanoid.save_backup_character(png_basedir)
+        save_metadata_json(png_basedir)
+        mblab_humanoid.save_all_textures(png_basedir)
+
+        mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+        mblab_humanoid.delete_all_properties()
+        mblab_humanoid.rename_materials(scn.mblab_final_prefix)
+        mblab_humanoid.update_bendy_muscles()
+        mblab_humanoid.rename_obj(scn.mblab_final_prefix)
+        mblab_humanoid.rename_armature(scn.mblab_final_prefix)
+
         # Scale factor 100
         bpy.context.area.spaces[0].pivot_point='CURSOR'
         bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
@@ -826,7 +866,6 @@ class ExportToUnrealButton(bpy.types.Operator):
         if (bpy.ops.object.mode != 'OBJECT'):
             bpy.ops.object.mode_set(mode='OBJECT')
         obj = mblab_humanoid.get_object()
-        mblab_humanoid.remove_modifier(modifier_name='mbastlab_corrective_modifier')
         # obj.scale *= 100
 
         # Load and run attached "bone_rename_script.py" script
@@ -837,8 +876,8 @@ class ExportToUnrealButton(bpy.types.Operator):
         print("Ran bone_rename_script")
 
         #Transform and save
-        bpy.context.scene.unit_settings.system = 'METRIC'
-        bpy.context.scene.unit_settings.scale_length = 0.01
+        scn.unit_settings.system = 'METRIC'
+        scn.unit_settings.scale_length = 0.01
         k = 100 #scale constant
         for ob in bpy.data.objects:
             ob.select = True
@@ -847,34 +886,16 @@ class ExportToUnrealButton(bpy.types.Operator):
         bpy.ops.object.transform_apply(scale=True)
         # bpy.ops.wm.save_mainfile()
 
-        mblab_humanoid.correct_expressions(correct_all=True)
+        # mblab_humanoid.remove_modifiers()
+        #
+        # mblab_humanoid.sync_internal_data_with_mesh()
+        # mblab_humanoid.update_displacement()
+        # mblab_humanoid.update_materials()
 
-        mblab_humanoid.remove_modifiers()
-
-        mblab_humanoid.sync_internal_data_with_mesh()
-        mblab_humanoid.update_displacement()
-        mblab_humanoid.update_materials()
-
-
-        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
-        if not os.path.exists(basedir):
-            os.makedirs(basedir)
-        # basedir = os.path.dirname(bpy.data.filepath)
-        if not basedir:
-            raise Exception("Blend file is not saved")
-        # filename = str(uuid.uuid4())
-        filename = context.scene.name_input_prop
         fn = os.path.join(basedir, filename)
         bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
         print("written:", fn)
-
-        filename = filename + ".png"
-        basedir = os.path.join(basedir, filename)
-
-        mblab_humanoid.save_backup_character(basedir)
-        save_metadata_json(basedir)
-        mblab_humanoid.save_all_textures(basedir)
 
         # mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
         # mblab_humanoid.delete_all_properties()
