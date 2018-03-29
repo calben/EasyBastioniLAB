@@ -130,6 +130,40 @@ class HumanCategory:
         properties.sort()
         return properties
 
+    def get_shortened_properties_list(self):
+        """
+        Return all properties involved in the category,
+        sorted and without double entries.
+        """
+        all_props_to_remove = {
+            'Cheeks': ['Cheeks_CreaseExt', 'Cheeks_InfraVolume', 'Cheeks_SideCrease', 'Cheeks_Tone'],
+            'Chin': ['Chin_Cleft', 'Chin_Tone'],
+            'Ears': ['Ears_LocY', 'Ears_LocZ', 'Ears_RotX'],
+            'Eyebrows': ['Eyebrows_SizeY', 'Eyebrows_Tone'],
+            'Eyelids': ['Eyelids_Angle', 'Eyelids_Crease', 'Eyelids_SizeZ'],
+            'Eyes': ['Eyes_BagSize', 'Eyes_innerSinus'],
+            'Forehead': ['Forehead_Temple'],
+            'Head': ['Head_CraniumDolichocephalic', 'Head_CraniumPentagonoides', 'Head_CraniumPlatycephalus', 'Head_Nucha'],
+            'Jaw': ['Jaw_Angle2'],
+            'Mouth': ['Mouth_LowerlipExt', 'Mouth_LowerlipVolume', 'Mouth_PhiltrumProminence', 'Mouth_PhiltrumSizeX',
+            'Mouth_PhiltrumSizeY', 'Mouth_Protrusion', 'Mouth_SideCrease', 'Mouth_UpperlipExt', 'Mouth_UpperlipVolume'],
+            'Nose': ['Nose_BaseSizeZ', 'Nose_GlabellaPosZ', 'Nose_GlabellaSizeY', 'Nose_NostrilCrease', 'Nose_NostrilSizeY', 'Nose_NostrilSizeZ',
+            'Nose_SeptumFlat', 'Nose_SeptumRolled', 'Nose_TipPosY', 'Nose_TipPosZ', 'Nose_WingBackFlat', 'Nose_WingBump']
+        }
+        properties = []
+        for modifier in self.modifiers:
+            for prop in modifier.properties:
+                # print(prop)
+                if prop not in properties:
+                    props_to_remove = all_props_to_remove.get(self.name)
+                    if (props_to_remove != None):
+                        if (prop not in props_to_remove):
+                            properties.append(prop)
+                    else:
+                        properties.append(prop)
+        properties.sort()
+        return properties
+
     def __contains__(self, mdf):
         for modifier in self.modifiers:
             if mdf.name == modifier.name:
@@ -289,12 +323,23 @@ class Humanoid:
         categories = self.categories.values()
         return sorted(categories)
 
+    def get_categories_shortlist(self):
+        categories_shortlist = self.categories
+        categories_to_remove = ['Abdomen', 'Armpit', 'Arms', 'Body', 'Chest', 'Elbows', 'Expressions', 'Fantasy', 'Feet', 'Hands', 'Jaws', 'Legs', 'Neck', 'Pelvis', 'Shoulders', 'Stomach', 'Torso', 'Waist', 'Wrists']
+        for category_to_remove in categories_to_remove:
+            categories_shortlist.pop(category_to_remove, None)
+        categories = categories_shortlist.values()
+        return sorted(categories)
+
     def get_category(self, name):
         if name in self.categories:
             return self.categories[name]
 
     def get_properties_in_category(self, name):
         return self.categories[name].get_all_properties()
+
+    def get_shortlist_properties_in_category(self, name):
+        return self.categories[name].get_shortened_properties_list()
 
     def init_character_data(self, morph_name):
         """

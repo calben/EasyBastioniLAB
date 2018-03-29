@@ -350,7 +350,7 @@ def init_measures_props(humanoid_instance):
 
 def init_categories_props(humanoid_instance):
     categories_enum = []
-    for category in mblab_humanoid.get_categories()  :
+    for category in mblab_humanoid.get_categories_shortlist()  :
         categories_enum.append(
             (category.name, category.name, category.name))
 
@@ -771,7 +771,7 @@ class GenericMorphButtonMinus(bpy.types.Operator):
 
     def execute(self, context):
         global mblab_humanoid
-        print("Pressed button", self.morphtargetprop, "min")
+        # print("Pressed button", self.morphtargetprop, "min")
         prop = self.morphtargetprop
         mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] - 0.1
         if mblab_humanoid.character_data[prop] > 1:
@@ -781,7 +781,7 @@ class GenericMorphButtonMinus(bpy.types.Operator):
         scn = bpy.context.scene
         # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
         mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
-        print("Got", mblab_humanoid.character_data[prop])
+        # print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
 class GenericMorphButtonPlus(bpy.types.Operator):
@@ -792,7 +792,7 @@ class GenericMorphButtonPlus(bpy.types.Operator):
 
     def execute(self, context):
         global mblab_humanoid
-        print("Pressed button", self.morphtargetprop, "max")
+        # print("Pressed button", self.morphtargetprop, "max")
         prop = self.morphtargetprop
         mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] + 0.1
         if mblab_humanoid.character_data[prop] > 1:
@@ -802,7 +802,7 @@ class GenericMorphButtonPlus(bpy.types.Operator):
         scn = bpy.context.scene
         # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
         mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
-        print("Got", mblab_humanoid.character_data[prop])
+        # print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
 class ExportToUnrealButton(bpy.types.Operator):
@@ -2441,7 +2441,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     col.label("PARAMETERS")
                     col2.prop(scn, "morphingCategory")
 
-                    for prop in mblab_humanoid.get_properties_in_category(scn.morphingCategory):
+                    for prop in mblab_humanoid.get_shortlist_properties_in_category(scn.morphingCategory):
                         if hasattr(obj, prop):
                             row = col.row()
                             row.scale_y = 2.5
