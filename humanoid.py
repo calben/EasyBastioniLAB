@@ -501,7 +501,7 @@ class Humanoid:
         dir_path = os.path.dirname(filepath)
         filename = os.path.basename(filepath)
         filename_root = os.path.splitext(filename)[0]
-        new_filename = filename_root + 'backup.json'
+        new_filename = filename_root + '_backup.json'
         new_filepath = os.path.join(dir_path,new_filename)
         lab_logger.info("Saving backup character {0}".format(algorithms.simple_path(new_filepath)))
         self.save_character(new_filepath, export_proportions=False, export_materials=True, export_metadata = True)

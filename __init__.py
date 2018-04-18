@@ -915,66 +915,106 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
     def execute(self, context):
         print("I'm a beautiful toad princess")
 
-        scene = bpy.context.scene
+        scn = bpy.context.scene
         for character in mblab_humanoid.humanoid_types:
-            print(character)
-            if (character[0] == 'm_af01'):
-                scene.mblab_character_name = character[0]
-                bpy.ops.mbast.init_character('INVOKE_DEFAULT')
-                if mblab_humanoid.exists_phenotype_database():
-                    ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
-                    for phenotype in ethnic_items:
-                        print (phenotype)
-                        if mblab_humanoid.exists_preset_database():
-                            preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
-                            for preset in preset_items:
-                                print (preset)
+            scn.mblab_character_name = character[0]
+            bpy.ops.mbast.init_character('INVOKE_DEFAULT')
+            if mblab_humanoid.exists_phenotype_database():
+                ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
+                for phenotype in ethnic_items:
+                    obj = mblab_humanoid.get_object()
+                    obj.ethnic = phenotype[0]
+                    filepath = os.path.join(
+                        mblab_humanoid.phenotypes_path,
+                        "".join([obj.ethnic, ".json"]))
+                    mblab_humanoid.load_character(filepath, mix=scn.mblab_mix_characters)
+                    if mblab_humanoid.exists_preset_database():
+                        preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
+                        for preset in preset_items:
+                            obj = mblab_humanoid.get_object()
+                            obj.preset = preset[0]
+                            filepath = os.path.join(
+                                mblab_humanoid.presets_path,
+                                "".join([obj.preset, ".json"]))
+                            mblab_humanoid.load_character(filepath, mix=scn.mblab_mix_characters)
+                            # cmd = 'echo $HOME'
+                            # print (subprocess.check_output(cmd, shell=True))
+                            # subprocess.call('echo', shell=True)
+                            # return {'FINISHED'}
+                            # filename = str(uuid.uuid4())
+                            filename = character[0] + '_' + phenotype [0] + '_' + preset[0]
 
-                # mblab_humanoid.correct_expressions(correct_all=True)
-                #
-                # mblab_humanoid.remove_modifiers()
-                #
-                # mblab_humanoid.sync_internal_data_with_mesh()
-                # mblab_humanoid.update_displacement()
-                # mblab_humanoid.update_materials()
-                #
-                # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
-                # # basedir = os.path.dirname(bpy.data.filepath)
-                # if not os.path.exists(basedir):
-                #     os.makedirs(basedir)
-                # if not basedir:
-                #     raise Exception("Blend file is not saved")
-                # filename = str(uuid.uuid4())
-                # fn = os.path.join(basedir, filename)
-                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", object_types={'ARMATURE', 'MESH'})
-                #
-                # print("written:", fn)
-                #
-                # filename = filename + ".png"
-                # basedir = os.path.join(basedir, filename)
-                #
-                # mblab_humanoid.save_backup_character(basedir)
-                # mblab_humanoid.save_all_textures(basedir)
-                #
-                # # Return to init
-                # obj = mblab_humanoid.get_object()
-                # name = bpy.path.clean_name(obj.name)
-                # if (bpy.ops.object.mode != 'OBJECT'):
-                #     bpy.ops.object.mode_set(mode='OBJECT')
-                # for o in bpy.data.objects:
-                #     if name in o.name:
-                #         o.select = True
-                #     else:
-                #         o.select = False
-                #
-                # bpy.ops.object.delete()
-                #
-                # # save and re-open the file to clean up the data blocks
-                # # basedir = os.path.join(os.path.dirname(__file__), "automatedExports")
-                # # bpy.ops.wm.save_as_mainfile(filepath=basedir)
-                # # bpy.ops.wm.open_mainfile(filepath=basedir)
-                # gui_status = "NEW_SESSION"
-                # #TODO: Add selection of different character models
+                            basedir = os.path.join(os.path.dirname(__file__), "exports\\" + character[0] + '_' + phenotype [0] + '_' + preset[0])
+                            if not os.path.exists(basedir):
+                                os.makedirs(basedir)
+                            # basedir = os.path.dirname(bpy.data.filepath)
+                            if not basedir:
+                                raise Exception("Blend file is not saved")
+
+                            png_filename = filename + ".png"
+                            png_basedir = os.path.join(basedir, png_filename)
+
+                            scn = bpy.context.scene
+                            # mblab_humanoid.correct_expressions(correct_all=True)
+                            mblab_humanoid.remove_modifiers()
+                            mblab_humanoid.sync_internal_data_with_mesh()
+                            mblab_humanoid.update_displacement()
+                            mblab_humanoid.update_materials()
+                            mblab_humanoid.save_backup_character(png_basedir)
+                            save_metadata_json(png_basedir)
+                            mblab_humanoid.save_all_textures(png_basedir)
+
+                            mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+                            mblab_humanoid.delete_all_properties()
+                            mblab_humanoid.rename_materials(scn.mblab_final_prefix)
+                            mblab_humanoid.update_bendy_muscles()
+                            mblab_humanoid.rename_obj(scn.mblab_final_prefix)
+                            mblab_humanoid.rename_armature(scn.mblab_final_prefix)
+
+                            # Scale factor 100
+                            bpy.context.area.spaces[0].pivot_point='CURSOR'
+                            bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
+                            print(bpy.ops.object.mode)
+                            if (bpy.ops.object.mode != 'OBJECT'):
+                                bpy.ops.object.mode_set(mode='OBJECT')
+                            obj = mblab_humanoid.get_object()
+                            # obj.scale *= 100
+
+                            # Load and run attached "bone_rename_script.py" script
+                            text = bpy.data.texts.load(os.path.join(os.path.dirname(__file__), "bone_rename_script.py"))   # if from disk
+                            ctx = bpy.context.copy()
+                            ctx['edit_text'] = text
+                            bpy.ops.text.run_script(ctx)
+                            print("Ran bone_rename_script")
+
+                            #Transform and save
+                            scn.unit_settings.system = 'METRIC'
+                            scn.unit_settings.scale_length = 0.01
+                            k = 100 #scale constant
+                            for ob in bpy.data.objects:
+                                ob.select = True
+
+                            bpy.ops.transform.resize(value=(k,k,k))
+                            bpy.ops.object.transform_apply(scale=True)
+                            # bpy.ops.wm.save_mainfile()
+
+                            # mblab_humanoid.remove_modifiers()
+                            #
+                            # mblab_humanoid.sync_internal_data_with_mesh()
+                            # mblab_humanoid.update_displacement()
+                            # mblab_humanoid.update_materials()
+
+                            fn = os.path.join(basedir, filename)
+                            bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
+
+                            print("written:", fn)
+
+                            # Set scene back to normal
+                            bpy.ops.object.delete()
+                            scn.unit_settings.scale_length = 1
+                            gui_status = "NEW_SESSION"
+
+
 
         return {'FINISHED'}
 
