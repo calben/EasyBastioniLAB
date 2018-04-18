@@ -864,14 +864,11 @@ class ExportToUnrealButton(bpy.types.Operator):
         mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         mblab_humanoid.rename_armature(scn.mblab_final_prefix)
 
-        # Scale factor 100
         bpy.context.area.spaces[0].pivot_point='CURSOR'
         bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
         print(bpy.ops.object.mode)
         if (bpy.ops.object.mode != 'OBJECT'):
             bpy.ops.object.mode_set(mode='OBJECT')
-        obj = mblab_humanoid.get_object()
-        # obj.scale *= 100
 
         # Load and run attached "bone_rename_script.py" script
         text = bpy.data.texts.load(os.path.join(os.path.dirname(__file__), "bone_rename_script.py"))   # if from disk
@@ -1049,24 +1046,27 @@ class SwitchViewButton(bpy.types.Operator):
 
     def execute(self, context):
         global viewOnBody
+
+        head_bone = mblab_humanoid.get_armature().data.bones.get('head')
+
         viewOnBody = (viewOnBody + 1) % 4
         v3d = bpy.context.space_data
         rv3d = v3d.region_3d
         if viewOnBody == 0:
             rv3d.view_distance = 2
-            rv3d.view_location.z = 1
+            rv3d.view_location.z = head_bone.head_local.z - 0.5
             eul = mathutils.Euler((radians(75), 0.0, 0.0), 'XYZ')
         elif viewOnBody == 1:
             rv3d.view_distance = 0.6
-            rv3d.view_location.z = 1.5
+            rv3d.view_location.z = head_bone.head_local.z
             eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
         elif viewOnBody == 2:
             rv3d.view_distance = 0.6
-            rv3d.view_location.z = 1.5
+            rv3d.view_location.z = head_bone.head_local.z
             eul = mathutils.Euler((radians(80), 0.0, radians(25)), 'XYZ')
         elif viewOnBody == 3:
             rv3d.view_distance = 0.6
-            rv3d.view_location.z = 1.5
+            rv3d.view_location.z = head_bone.head_local.z
             eul = mathutils.Euler((radians(80), 0.0, radians(-25)), 'XYZ')
         rv3d.view_rotation = eul.to_quaternion()
         return{'FINISHED'}
@@ -1162,10 +1162,12 @@ class ButtonParametersOn(bpy.types.Operator):
         gui_active_panel = "parameters"
         sync_character_to_props()
 
+        head_bone = mblab_humanoid.get_armature().data.bones.get('head')
+
         v3d = bpy.context.space_data
         rv3d = v3d.region_3d
         rv3d.view_distance = 0.6
-        rv3d.view_location.z = 1.5
+        rv3d.view_location.z = head_bone.head_local.z
         eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
         rv3d.view_rotation = eul.to_quaternion()
         viewOnBody = 1
@@ -1368,10 +1370,12 @@ class ButtonSkinOn(bpy.types.Operator):
         global viewOnBody
         gui_active_panel = 'skin'
 
+        head_bone = mblab_humanoid.get_armature().data.bones.get('head')
+
         v3d = bpy.context.space_data
         rv3d = v3d.region_3d
         rv3d.view_distance = 0.6
-        rv3d.view_location.z = 1.5
+        rv3d.view_location.z = head_bone.head_local.z
         eul = mathutils.Euler((radians(80), 0.0, 0.0), 'XYZ')
         rv3d.view_rotation = eul.to_quaternion()
         viewOnBody = 1
@@ -1501,10 +1505,12 @@ class ButtonLibraryOn(bpy.types.Operator):
         global viewOnBody
         gui_active_panel = 'library'
 
+        head_bone = mblab_humanoid.get_armature().data.bones.get('head')
+
         v3d = bpy.context.space_data
         rv3d = v3d.region_3d
         rv3d.view_distance = 2
-        rv3d.view_location.z = 1
+        rv3d.view_location.z = head_bone.head_local.z - 0.5
         eul = mathutils.Euler((radians(75), 0.0, 0.0), 'XYZ')
         rv3d.view_rotation = eul.to_quaternion()
         viewOnBody = 0
