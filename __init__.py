@@ -350,7 +350,7 @@ def init_measures_props(humanoid_instance):
 
 def init_categories_props(humanoid_instance):
     categories_enum = []
-    for category in mblab_humanoid.get_categories_shortlist()  :
+    for category in mblab_humanoid.get_categories()  :
         categories_enum.append(
             (category.name, category.name, category.name))
 
@@ -914,20 +914,27 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
 
         scn = bpy.context.scene
         for character in mblab_humanoid.humanoid_types:
-            scn.mblab_character_name = character[0]
-            bpy.ops.mbast.init_character('INVOKE_DEFAULT')
-            if mblab_humanoid.exists_phenotype_database():
-                ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
-                for phenotype in ethnic_items:
-                    obj = mblab_humanoid.get_object()
-                    obj.ethnic = phenotype[0]
-                    filepath = os.path.join(
-                        mblab_humanoid.phenotypes_path,
-                        "".join([obj.ethnic, ".json"]))
-                    mblab_humanoid.load_character(filepath, mix=scn.mblab_mix_characters)
-                    if mblab_humanoid.exists_preset_database():
-                        preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
-                        for preset in preset_items:
+            # print(character[0])
+            # if ("Male" in character[0]):
+                # print("Got male")
+            if not any (value in character[1] for value in ("anime", "elf", "dwarf", "Anime")):
+                scn.mblab_character_name = character[0]
+                print(character)
+                bpy.ops.mbast.init_character('INVOKE_DEFAULT')
+                # if mblab_humanoid.exists_phenotype_database():
+                    # ethnic_items = algorithms.generate_items_list(mblab_humanoid.phenotypes_path)
+                    # for phenotype in ethnic_items:
+                    #     obj = mblab_humanoid.get_object()
+                    #     obj.ethnic = phenotype[0]
+                    #     filepath = os.path.join(
+                    #         mblab_humanoid.phenotypes_path,
+                    #         "".join([obj.ethnic, ".json"]))
+                    #     mblab_humanoid.load_character(filepath, mix=scn.mblab_mix_characters)
+                if mblab_humanoid.exists_preset_database():
+                    preset_items = algorithms.generate_items_list(mblab_humanoid.presets_path)
+                    for preset in preset_items:
+                        if (preset[1] == "type_normobody" or preset[1] == "type_lightbody" or preset[1] == "type_heavybody"):
+                            print(preset)
                             obj = mblab_humanoid.get_object()
                             obj.preset = preset[0]
                             filepath = os.path.join(
@@ -939,9 +946,9 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                             # subprocess.call('echo', shell=True)
                             # return {'FINISHED'}
                             # filename = str(uuid.uuid4())
-                            filename = character[0] + '_' + phenotype [0] + '_' + preset[0]
+                            filename = character[0] + '_' + preset[0]
 
-                            basedir = os.path.join(os.path.dirname(__file__), "exports\\" + character[0] + '_' + phenotype [0] + '_' + preset[0])
+                            basedir = os.path.join(os.path.dirname(__file__), "exports\\" + character[0] + '_' + preset[0])
                             if not os.path.exists(basedir):
                                 os.makedirs(basedir)
                             # basedir = os.path.dirname(bpy.data.filepath)
@@ -1010,8 +1017,7 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                             bpy.ops.object.delete()
                             scn.unit_settings.scale_length = 1
                             gui_status = "NEW_SESSION"
-
-
+                            bpy.ops.mbast.init_character('INVOKE_DEFAULT')
 
         return {'FINISHED'}
 
