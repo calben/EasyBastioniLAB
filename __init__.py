@@ -960,7 +960,7 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                             png_basedir = os.path.join(basedir, png_filename)
                             fn = os.path.join(basedir, filename)
 
-                            bpy.ops.wm.save_mainfile(filepath=fn + ".blend")
+                            # bpy.ops.wm.save_mainfile(filepath=fn + ".blend")
 
                             scn = bpy.context.scene
                             # mblab_humanoid.correct_expressions(correct_all=True)
@@ -1011,6 +1011,9 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                             print("written:", fn)
 
                             # Set scene back to normal
+                            # for material in bpy.data.materials:
+                            #     material.user_clear()
+                            #     bpy.data.materials.remove(material)
                             bpy.ops.object.delete()
                             scn.unit_settings.scale_length = 1
                             gui_status = "NEW_SESSION"
