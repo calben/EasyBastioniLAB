@@ -372,6 +372,7 @@ def init_restposes_props(humanoid_instance):
             if (item[0] == 't-pose'):
                 wellvr_restpose_update()
 
+
 def wellvr_restpose_update():
     global mblab_humanoid
     armature = mblab_humanoid.get_armature()
@@ -957,9 +958,13 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
 
                             png_filename = filename + ".png"
                             png_basedir = os.path.join(basedir, png_filename)
+                            fn = os.path.join(basedir, filename)
+
+                            bpy.ops.wm.save_mainfile(filepath=fn + ".blend")
 
                             scn = bpy.context.scene
                             # mblab_humanoid.correct_expressions(correct_all=True)
+                            mblab_humanoid.set_rest_pose()
                             mblab_humanoid.remove_modifiers()
                             mblab_humanoid.sync_internal_data_with_mesh()
                             mblab_humanoid.update_displacement()
@@ -1000,15 +1005,7 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
 
                             bpy.ops.transform.resize(value=(k,k,k))
                             bpy.ops.object.transform_apply(scale=True)
-                            # bpy.ops.wm.save_mainfile()
 
-                            # mblab_humanoid.remove_modifiers()
-                            #
-                            # mblab_humanoid.sync_internal_data_with_mesh()
-                            # mblab_humanoid.update_displacement()
-                            # mblab_humanoid.update_materials()
-
-                            fn = os.path.join(basedir, filename)
                             bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
                             print("written:", fn)
