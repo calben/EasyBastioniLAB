@@ -261,6 +261,10 @@ def tone_update(self, context):
 def modifiers_update(self, context):
     sync_character_to_props()
 
+def dud_modifiers_update(self, context):
+    #nothing to see here folks
+    print ("potato")
+
 
 def preset_update(self, context):
     """
@@ -358,6 +362,16 @@ def init_categories_props(humanoid_instance):
         items=categories_enum,
         update = modifiers_update,
         name="Morphing categories")
+
+
+    # categories_shortlist_enum = []
+    # for category in mblab_humanoid.get_categories_shortlist():
+    #     categories_shortlist_enum.append((category.name, category.name, category.name))
+    #
+    # bpy.types.Scene.shortMorphingCategory = bpy.props.EnumProperty(
+    #     items=categories_shortlist_enum,
+    #     update = dud_modifiers_update,
+    #     name="Shortlist morphing categories")
 
 def init_restposes_props(humanoid_instance):
     if humanoid_instance.exists_rest_poses_database():
@@ -810,14 +824,6 @@ class ExportToUnrealButton(bpy.types.Operator):
     bl_idname = "wellvr.export_to_unreal"
     bl_label = "Export To Unreal"
 
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self)
-
-    def draw(self, context):
-        layout = self.layout
-        col = self.layout.column(align = True)
-        col.prop(context.scene, "name_input_prop")
-
     def execute(self, context):
         global mblab_humanoid
         global gui_status
@@ -849,21 +855,22 @@ class ExportToUnrealButton(bpy.types.Operator):
 
         scn = bpy.context.scene
 
-        mblab_humanoid.correct_expressions(correct_all=True)
-        mblab_humanoid.remove_modifiers()
-        mblab_humanoid.sync_internal_data_with_mesh()
-        mblab_humanoid.update_displacement()
-        mblab_humanoid.update_materials()
-        mblab_humanoid.save_backup_character(png_basedir)
-        save_metadata_json(png_basedir)
-        mblab_humanoid.save_all_textures(png_basedir)
-
-        mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
-        mblab_humanoid.delete_all_properties()
-        mblab_humanoid.rename_materials(scn.mblab_final_prefix)
-        mblab_humanoid.update_bendy_muscles()
-        mblab_humanoid.rename_obj(scn.mblab_final_prefix)
-        mblab_humanoid.rename_armature(scn.mblab_final_prefix)
+        # mblab_humanoid.correct_expressions(correct_all=True)
+        # mblab_humanoid.set_rest_pose()
+        # mblab_humanoid.remove_modifiers()
+        # mblab_humanoid.sync_internal_data_with_mesh()
+        # mblab_humanoid.update_displacement()
+        # mblab_humanoid.update_materials()
+        # mblab_humanoid.save_backup_character(png_basedir)
+        # save_metadata_json(png_basedir)
+        # mblab_humanoid.save_all_textures(png_basedir)
+        #
+        # mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+        # mblab_humanoid.delete_all_properties()
+        # mblab_humanoid.rename_materials(scn.mblab_final_prefix)
+        # mblab_humanoid.update_bendy_muscles()
+        # mblab_humanoid.rename_obj(scn.mblab_final_prefix)
+        # mblab_humanoid.rename_armature(scn.mblab_final_prefix)
 
         bpy.context.area.spaces[0].pivot_point='CURSOR'
         bpy.context.area.spaces[0].cursor_location = (0.0, 0.0, 0.0)
@@ -903,7 +910,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         # Set scene back to normal
         bpy.ops.object.delete()
         scn.unit_settings.scale_length = 1
-
+        gui_status = "NEW_SESSION"
         return {'FINISHED'}
 
 class ExportCharacterPresetsButton(bpy.types.Operator):
@@ -1715,7 +1722,7 @@ class FinalizeCharacterAndImages(bpy.types.Operator,ExportHelper):
         mblab_humanoid.update_bendy_muscles()
         mblab_humanoid.rename_obj(scn.mblab_final_prefix)
         mblab_humanoid.rename_armature(scn.mblab_final_prefix)
-        gui_status = "NEW_SESSION"
+        gui_status = "AFTER_CREATION"
         return {'FINISHED'}
 
 class FinalizeCharacter(bpy.types.Operator):
@@ -1756,7 +1763,79 @@ class FinalizeCharacter(bpy.types.Operator):
         mblab_humanoid.rename_armature(scn.mblab_final_prefix)
 
 
-        gui_status = "NEW_SESSION"
+        gui_status = "AFTER_CREATION"
+        return {'FINISHED'}
+
+
+class WellVRFinalizeCharacterAndMetadata(bpy.types.Operator):
+    """
+        Convert the character in a standard Blender model
+    """
+    bl_label = 'Finalize with metadata and backup'
+    bl_idname = 'wellvr.finalize_character_and_metadata'
+    # filename_ext = ".png"
+    # filter_glob = bpy.props.StringProperty(
+    #     default="*.png",
+    #     options={'HIDDEN'},
+    #     )
+    bl_description = 'Finalize, saving all the textures and converting the parameters in shapekeys. Warning: after the conversion the character will be no longer modifiable using ManuelbastioniLAB tools'
+    bl_context = 'objectmode'
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        col = self.layout.column(align = True)
+        col.prop(context.scene, "name_input_prop")
+
+    def execute(self, context):
+
+        global mblab_humanoid
+        global gui_status
+        #TODO unique function in humanoid class
+        scn = bpy.context.scene
+        armature = mblab_humanoid.get_armature()
+
+        filename = context.scene.name_input_prop
+        if (filename == ''):
+            self.report({'INFO'}, "Please enter a name for the character")
+            return {'CANCELLED'}
+        ex = filename.rstrip()
+        if (not re.match(r'^[a-zA-Z0-9][ A-Za-z0-9_-]*$', ex)):
+            self.report({'INFO'}, "Alphanumeric characters and underscores only")
+            return {'CANCELLED'}
+
+        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
+        if not os.path.exists(basedir):
+            os.makedirs(basedir)
+        # basedir = os.path.dirname(bpy.data.filepath)
+        if not basedir:
+            raise Exception("Blend file is not saved")
+
+        png_filename = filename + ".png"
+        png_basedir = os.path.join(basedir, png_filename)
+
+        mblab_humanoid.correct_expressions(correct_all=True)
+        # if not algorithms.is_IK_armature(armature):
+        mblab_humanoid.set_rest_pose()
+        # if scn.mblab_remove_all_modifiers:
+        mblab_humanoid.remove_modifiers()
+        mblab_humanoid.sync_internal_data_with_mesh()
+        mblab_humanoid.update_displacement()
+        mblab_humanoid.update_materials()
+        mblab_humanoid.save_backup_character(png_basedir)
+        save_metadata_json(png_basedir)
+        mblab_humanoid.save_all_textures(png_basedir)
+
+        mblab_humanoid.morph_engine.convert_all_to_blshapekeys()
+        mblab_humanoid.delete_all_properties()
+        mblab_humanoid.rename_materials(scn.mblab_final_prefix)
+        mblab_humanoid.update_bendy_muscles()
+        mblab_humanoid.rename_obj(scn.mblab_final_prefix)
+        mblab_humanoid.rename_armature(scn.mblab_final_prefix)
+        gui_status = "AFTER_CREATION"
         return {'FINISHED'}
 
 
@@ -2286,25 +2365,26 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     self.layout.prop(scn,'mblab_use_lamps')
 
             self.layout.operator('mbast.init_character')
-            self.layout.operator('wellvr.export_character_presets_button')
+            # uncomment this to export characters -- EasyBastioniLAB -- wellvr
+            # self.layout.operator('wellvr.export_character_presets_button')
 
-        if gui_status != "ACTIVE_SESSION":
+        if gui_status == "AFTER_CREATION":
+            # if advanced_mode_is_on:
+            self.layout.label(" ")
+            self.layout.label("AFTER-CREATION TOOLS")
+
+
+            if gui_active_panel_fin != "assets":
+                self.layout.operator('mbast.button_assets_on', icon=icon_expand)
+            else:
+                self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
+                #assets_status = mblab_proxy.validate_assets_fitting()
+                box = self.layout.box()
+                box.prop(scn,'mblab_assets_models')
+                box.operator('mbast.load_assets_element')
+
+
             if advanced_mode_is_on:
-                self.layout.label(" ")
-                self.layout.label("AFTER-CREATION TOOLS")
-
-
-                if gui_active_panel_fin != "assets":
-                    self.layout.operator('mbast.button_assets_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
-                    #assets_status = mblab_proxy.validate_assets_fitting()
-                    box = self.layout.box()
-                    box.prop(scn,'mblab_assets_models')
-                    box.operator('mbast.load_assets_element')
-
-
-
                 if gui_active_panel_fin != "pose":
                     self.layout.operator('mbast.button_pose_on', icon=icon_expand)
                 else:
@@ -2350,47 +2430,48 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         box.enabled = False
                         box.label("No express. shapekeys", icon = 'INFO')
 
-                if gui_active_panel_fin != "proxy_fit":
-                    self.layout.operator('mbast.button_proxy_fit_on', icon=icon_expand)
-                else:
-                    self.layout.operator('mbast.button_proxy_fit_off', icon=icon_collapse)
-                    fitting_status, proxy_obj, reference_obj = mblab_proxy.validate_proxy_fitting()
+            if gui_active_panel_fin != "proxy_fit":
+                self.layout.operator('mbast.button_proxy_fit_on', icon=icon_expand)
+            else:
+                self.layout.operator('mbast.button_proxy_fit_off', icon=icon_collapse)
+                fitting_status, proxy_obj, reference_obj = mblab_proxy.validate_proxy_fitting()
 
-                    box = self.layout.box()
-                    box.label("PROXY FITTING")
+                box = self.layout.box()
+                box.label("PROXY FITTING")
 
-                    if fitting_status == "NO_REFERENCE":
-                        box.enabled = False
-                        box.label("Fitting not available for selected objects.", icon="INFO")
-                        box.label("Possible reasons:")
-                        box.label("- Body created with a different lab version")
-                        box.label("- Body topology modified by custom modelling")
-                        box.label("- Selection of a non-mesh object")
-                        box.label("- Body topology altered by modifiers (decimator,subsurf, etc..)")
-                    if fitting_status == 'OK':
-                        box.enabled = True
-                        box.label("The proxy is ready for fitting.", icon="INFO")
-                        proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
-                        if proxy_compatib == "WARNING":
-                            box.label("The proxy is not designed for the selected character.", icon="ERROR")
+                if fitting_status == "NO_REFERENCE":
+                    box.enabled = False
+                    box.label("Fitting not available for selected objects.", icon="INFO")
+                    box.label("Possible reasons:")
+                    box.label("- Body created with a different lab version")
+                    box.label("- Body topology modified by custom modelling")
+                    box.label("- Selection of a non-mesh object")
+                    box.label("- Body topology altered by modifiers (decimator,subsurf, etc..)")
+                if fitting_status == 'OK':
+                    box.enabled = True
+                    box.label("The proxy is ready for fitting.", icon="INFO")
+                    proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
+                    if proxy_compatib == "WARNING":
+                        box.label("The proxy is not designed for the selected character.", icon="ERROR")
 
 
-                        box.prop(scn,'mblab_proxy_offset')
-                        box.prop(scn,'mblab_proxy_threshold')
-                        box.prop(scn, 'mblab_add_mask_group')
-                        box.prop(scn, 'mblab_overwrite_proxy_weights')
-                        box.operator("mbast.proxy_fit", icon="MOD_CLOTH")
-                        box.operator("mbast.proxy_removefit", icon="MOD_CLOTH")
-                    if fitting_status == 'WRONG_SELECTION':
-                        box.enabled = False
-                        box.label("Please select only two objects: humanoid and proxy", icon="INFO")
-                    if fitting_status == 'NO_REFERENCE_SELECTED':
-                        box.enabled = False
-                        box.label("No valid humanoid template selected", icon="INFO")
-                    if fitting_status == 'NO_MESH_SELECTED':
-                        box.enabled = False
-                        box.label("Selected proxy is not a mesh", icon="INFO")
+                    box.prop(scn,'mblab_proxy_offset')
+                    box.prop(scn,'mblab_proxy_threshold')
+                    box.prop(scn, 'mblab_add_mask_group')
+                    box.prop(scn, 'mblab_overwrite_proxy_weights')
+                    box.operator("mbast.proxy_fit", icon="MOD_CLOTH")
+                    box.operator("mbast.proxy_removefit", icon="MOD_CLOTH")
+                if fitting_status == 'WRONG_SELECTION':
+                    box.enabled = False
+                    box.label("Please select only two objects: humanoid and proxy", icon="INFO")
+                if fitting_status == 'NO_REFERENCE_SELECTED':
+                    box.enabled = False
+                    box.label("No valid humanoid template selected", icon="INFO")
+                if fitting_status == 'NO_MESH_SELECTED':
+                    box.enabled = False
+                    box.label("Selected proxy is not a mesh", icon="INFO")
 
+            if advanced_mode_is_on:
                 if gui_active_panel_fin != "utilities":
                     self.layout.operator('mbast.button_utilities_on', icon=icon_expand)
                 else:
@@ -2412,6 +2493,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                                 box.prop(scn,'mblab_rot_offset_2')
                     else:
                         box.label(mblab_retarget.is_animated_bone)
+
+            self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
 
         if gui_status == "ACTIVE_SESSION":
@@ -2618,19 +2701,21 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         box.operator("mbast.export_character", icon='EXPORT')
                         box.operator("mbast.import_character", icon='IMPORT')
 
-                if advanced_mode_is_on:
-                    if gui_active_panel != "finalize":
-                        self.layout.operator('mbast.button_finalize_on', icon=icon_expand)
-                    else:
-                        self.layout.operator('mbast.button_finalize_off', icon=icon_collapse)
-                        box = self.layout.box()
-                        box.prop(scn, 'mblab_save_images_and_backup')
-                        box.prop(scn,'mblab_remove_all_modifiers')
-                        box.prop(scn,'mblab_final_prefix')
-                        if scn.mblab_save_images_and_backup:
-                            box.operator("mbast.finalize_character_and_images", icon='FREEZE')
-                        else:
-                            box.operator("mbast.finalize_character", icon='FREEZE')
+                self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
+                # if advanced_mode_is_on:
+                if gui_active_panel != "finalize":
+                    self.layout.operator('mbast.button_finalize_on', icon=icon_expand)
+                else:
+                    self.layout.operator('mbast.button_finalize_off', icon=icon_collapse)
+                    box = self.layout.box()
+                    box.operator("wellvr.finalize_character_and_metadata", icon='FREEZE')
+                    # box.prop(scn, 'mblab_save_images_and_backup')
+                    # box.prop(scn,'mblab_remove_all_modifiers')
+                    # box.prop(scn,'mblab_final_prefix')
+                    # if scn.mblab_save_images_and_backup:
+                    #     box.operator("mbast.finalize_character_and_images", icon='FREEZE')
+                    # else:
+                    #     box.operator("mbast.finalize_character", icon='FREEZE')
 
                 if advanced_mode_is_on:
                     if gui_active_panel != "display_opt":
@@ -2657,8 +2742,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
                 # self.layout.operator('wellvr.return_to_init_screen')
-                self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
-                self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
+                # self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
+                # self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
 
                 if advanced_mode_is_on:
                     self.layout.label(" ")
