@@ -39,6 +39,7 @@ import bpy.utils.previews
 import bpy_extras
 import mathutils
 from math import radians
+from subprocess import call
 import uuid
 import re
 import subprocess
@@ -843,7 +844,7 @@ class ExportToUnrealButton(bpy.types.Operator):
             self.report({'INFO'}, "Alphanumeric characters and underscores only")
             return {'CANCELLED'}
 
-        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
+        basedir = os.path.join(os.path.dirname(__file__), "exports/" + context.scene.name_input_prop)
         if not os.path.exists(basedir):
             os.makedirs(basedir)
         # basedir = os.path.dirname(bpy.data.filepath)
@@ -901,16 +902,44 @@ class ExportToUnrealButton(bpy.types.Operator):
         # mblab_humanoid.sync_internal_data_with_mesh()
         # mblab_humanoid.update_displacement()
         # mblab_humanoid.update_materials()
-
-        fn = os.path.join(basedir, filename)
-        bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
+        for object in bpy.data.objects:
+            bpy.ops.object.select_all(action='DESELECT')
+            object.select = True
+            if (object.find_armature() != None):
+                object.find_armature().select = True
+            export_name = object.name
+            if ("MBlab_bd" in object.name):
+                export_name = filename
+            fn = os.path.join(basedir, export_name)
+            print("exporting",object.name)
+            print({o.name : o.select for o in bpy.data.objects})
+            bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
+            # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
         print("written:", fn)
 
         # Set scene back to normal
+        bpy.ops.object.select_all(action='SELECT')
         bpy.ops.object.delete()
         scn.unit_settings.scale_length = 1
         gui_status = "NEW_SESSION"
+        # prepare_character_package_arguments = ' '.join(["-p", "\"D:/WellVr/UnrealModPackagerProject/\"",
+        #     "-r", "ModPackager.uproject",
+        #     "-u", "\"D:/Program Files/Epic Games/UE_4.19/\"",
+        #     "-c", filename,
+        #     "-d", "\"D:/WellVr/Blender/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/\"",
+        #     "-e", "\"This is not bob.\"",
+        #     "-s", "\"Skeleton'/BastioniLABCharacters/Meshes/Male_Caucasian_Athletic_Skeleton.Male_Caucasian_Athletic_Skeleton'",
+        #     "-b"])
+        call(["D:/WellVr/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe", 
+            "-p", "D:/WellVr/UnrealModPackagerProject/",
+            "-r", "ModPackager.uproject",
+            "-u", "D:/Program Files/Epic Games/UE_4.19/",
+            "-c", filename,
+            "-d", "D:/WellVr/Blender/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/",
+            "-e", "This is not bob.",
+            "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseBastioniCharacter/BaseBastioniCharacter_Skeleton.BaseBastioniCharacter_Skeleton'",
+            "-b"], shell=True)
         return {'FINISHED'}
 
 class ExportCharacterPresetsButton(bpy.types.Operator):
@@ -956,7 +985,7 @@ class ExportCharacterPresetsButton(bpy.types.Operator):
                             # filename = str(uuid.uuid4())
                             filename = character[0] + '_' + preset[0]
 
-                            basedir = os.path.join(os.path.dirname(__file__), "exports\\" + character[0] + '_' + preset[0])
+                            basedir = os.path.join(os.path.dirname(__file__), "exports/" + character[0] + '_' + preset[0])
                             if not os.path.exists(basedir):
                                 os.makedirs(basedir)
                             # basedir = os.path.dirname(bpy.data.filepath)
@@ -1807,7 +1836,7 @@ class WellVRFinalizeCharacterAndMetadata(bpy.types.Operator):
             self.report({'INFO'}, "Alphanumeric characters and underscores only")
             return {'CANCELLED'}
 
-        basedir = os.path.join(os.path.dirname(__file__), "exports\\" + context.scene.name_input_prop)
+        basedir = os.path.join(os.path.dirname(__file__), "exports/" + context.scene.name_input_prop)
         if not os.path.exists(basedir):
             os.makedirs(basedir)
         # basedir = os.path.dirname(bpy.data.filepath)
