@@ -897,6 +897,21 @@ class ExportToUnrealButton(bpy.types.Operator):
         bpy.ops.object.transform_apply(scale=True)
         # bpy.ops.wm.save_mainfile()
 
+        bl_region_type = "UI"
+
+        for object in bpy.data.objects:
+            if (object.type == "MESH"):
+                if (len(list(filter(lambda x : "mbastlab_proxyfit" in x.name, object.data.shape_keys.key_blocks))) > 0):
+                    print("Deleting proxy fitting keys from", object.name)
+                    object.select = True
+                    bpy.context.scene.objects.active = object
+                    def del_shape_key(name):
+                        i = object.data.shape_keys.key_blocks.keys().index(name)
+                        object.active_shape_key_index = i
+                        bpy.ops.object.shape_key_remove()
+                    del_shape_key("Basis")
+                    del_shape_key("mbastlab_proxyfit")
+
         # mblab_humanoid.remove_modifiers()
         #
         # mblab_humanoid.sync_internal_data_with_mesh()
