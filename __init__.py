@@ -946,14 +946,15 @@ class ExportToUnrealButton(bpy.types.Operator):
         #     "-e", "\"This is not bob.\"",
         #     "-s", "\"Skeleton'/BastioniLABCharacters/Meshes/Male_Caucasian_Athletic_Skeleton.Male_Caucasian_Athletic_Skeleton'",
         #     "-b"])
-        call(["D:/WellVr/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe", 
-            "-p", "D:/WellVr/UnrealModPackagerProject/",
+        call(["S:/WellVrRoot/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe", 
+            "-p", "S:/WellVrRoot/UnrealModPackagerProject/",
             "-r", "ModPackager.uproject",
-            "-u", "D:/Program Files/Epic Games/UE_4.19/",
+            "-u", "C:/EpicGamesLibrary/UE_4.19/",
             "-c", filename,
-            "-d", "D:/WellVr/Blender/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/",
+            "-d", "S:/WellVrRoot/CharacterCreator/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/",
             "-e", "This is not bob.",
             "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseBastioniCharacter/BaseBastioniCharacter_Skeleton.BaseBastioniCharacter_Skeleton'",
+            "-o", "S:/WellVrRoot/CharacterPackages/",
             "-b"], shell=True)
         return {'FINISHED'}
 
