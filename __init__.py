@@ -43,6 +43,7 @@ from subprocess import call
 import uuid
 import re
 import subprocess
+from bpy.props import EnumProperty
 
 #import cProfile, pstats, io
 #import faulthandler
@@ -525,18 +526,18 @@ def skin_previews_update(self, context):
     global mblab_humanoid
     # place skin complexion and hue in the .png's name!
     selected_skin_preview_name = bpy.context.scene.skin_previews
-    split_skin_preview_name = selected_skin_preview_name.replace('.', '_')
-    split_skin_preview_name = split_skin_preview_name.split('_')
+    selected_skin_preview_name = selected_skin_preview_name[:(len(selected_skin_preview_name) - 4)]
+    split_skin_preview_name = selected_skin_preview_name.split('_')
     for split_value in split_skin_preview_name:
         if 'complexion' in split_value:
             split_complexion = split_value.split('-')
-            complexion_value = int(split_complexion[1])
-            complexion_value /= 1000
+            complexion_value = float(split_complexion[1])
+            # complexion_value /= 1000
             mblab_humanoid.character_material_properties['skin_complexion'] = complexion_value
         if 'hue' in split_value:
             split_hue = split_value.split('-')
-            hue_value = int(split_hue[1])
-            hue_value /= 1000
+            hue_value = float(split_hue[1])
+            # hue_value /= 1000
             mblab_humanoid.character_material_properties['skin_hue'] = hue_value
 
     mblab_humanoid.material_realtime_activated = False
@@ -551,7 +552,47 @@ def skin_previews_update(self, context):
     mblab_humanoid.material_realtime_activated = True
     mblab_humanoid.update_materials()
 
+def generate_morph_previews(morph_target):
+    pcoll = preview_collections[morph_target]
+    image_location = pcoll.images_location
+    VALID_EXTENSIONS = ('.png', '.jpg', '.jpeg')
 
+    enum_items = []
+
+    images_dir = os.path.join(image_location, morph_target)
+    # Generate the thumbnails
+    for i, image in enumerate(os.listdir(images_dir)):
+        if image.endswith(VALID_EXTENSIONS):
+            filepath = os.path.join(images_dir, image)
+            thumb = pcoll.load(filepath, filepath, 'IMAGE')
+            enum_items.append((image, image, "", thumb.icon_id, i))
+
+    return enum_items
+
+def morph_previews_update(self, context, morph_target):
+    global mblab_humanoid
+
+    selected_morph_target_name = getattr(bpy.context.scene, morph_target)
+    selected_morph_target_name = selected_morph_target_name[:(len(selected_morph_target_name) - 4)]
+    print(selected_morph_target_name)
+    split_morph_target_name = selected_morph_target_name.rsplit('_', 1)
+    print(split_morph_target_name[-1])
+    print(split_morph_target_name[0])
+    prop = split_morph_target_name[0]
+
+    mblab_humanoid.character_data[prop] = float(split_morph_target_name[-1])
+    print(mblab_humanoid.character_data[prop])
+    if mblab_humanoid.character_data[prop] > 1:
+        mblab_humanoid.character_data[prop] = 1
+    elif mblab_humanoid.character_data[prop] < 0:
+        mblab_humanoid.character_data[prop] = 0
+    scn = bpy.context.scene
+    # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
+    mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
+    # print("Got", mblab_humanoid.character_data[prop])
+
+def morph_previews_update_closure(morph_target):
+    return lambda a,b: morph_previews_update(a,b,morph_target)
 
 
 def save_metadata_json(filepath):
@@ -789,6 +830,8 @@ class GenericMorphButtonMinus(bpy.types.Operator):
         global mblab_humanoid
         # print("Pressed button", self.morphtargetprop, "min")
         prop = self.morphtargetprop
+        print(prop)
+        print(mblab_humanoid.character_data[prop])
         mblab_humanoid.character_data[prop] = mblab_humanoid.character_data[prop] - 0.1
         if mblab_humanoid.character_data[prop] > 1:
             mblab_humanoid.character_data[prop] = 1
@@ -946,7 +989,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         #     "-e", "\"This is not bob.\"",
         #     "-s", "\"Skeleton'/BastioniLABCharacters/Meshes/Male_Caucasian_Athletic_Skeleton.Male_Caucasian_Athletic_Skeleton'",
         #     "-b"])
-        call(["S:/WellVrRoot/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe", 
+        call(["S:/WellVrRoot/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe",
             "-p", "S:/WellVrRoot/UnrealModPackagerProject/",
             "-r", "ModPackager.uproject",
             "-u", "C:/EpicGamesLibrary/UE_4.19/",
@@ -1162,7 +1205,7 @@ class TakePicturesWithCamera(bpy.types.Operator):
             camRotations['Mouth'] = (81.1, 0, 23)
             camLocations['Nose'] = (0.110908, -0.294595, 1.56963)
             camRotations['Nose'] = (83.6, 0, 33.1)
-            prop_count = 0
+            image_count = 0
             for key, value in camLocations.items():
                 print(key, value, camRotations[key])
                 camObj.location = value
@@ -1170,28 +1213,84 @@ class TakePicturesWithCamera(bpy.types.Operator):
                 camObj.rotation_euler = (radians(x), radians(y), radians(z))
                 for prop in mblab_humanoid.get_properties_in_category(key):
                     print(prop)
-                    prop_count += 1
-                    # Get image of min prop
-                    mblab_humanoid.character_data[prop] = 0
-                    mblab_humanoid.update_character(category_name = key, mode="update_all")
-                    prop_path = str(prop+"_Min")
-                    print(prop_path)
-                    file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
-                    bpy.context.scene.render.filepath = file
-                    bpy.ops.render.render( write_still=True )
-                    # Get image of maxed prop
-                    mblab_humanoid.character_data[prop] = 1
-                    mblab_humanoid.update_character(category_name = key, mode="update_all")
-                    prop_path = str(prop+"_Max")
-                    print(prop_path)
-                    file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
-                    bpy.context.scene.render.filepath = file
-                    bpy.ops.render.render( write_still=True )
+                    prop_value = 0.0;
+                    while (prop_value <= 1.0):
+                        image_count += 1
+                        prop_value = round(prop_value, 1)
+                        mblab_humanoid.character_data[prop] = prop_value
+                        mblab_humanoid.update_character(category_name = key, mode="update_all")
+                        prop_path = str(prop+"_"+str(prop_value))
+                        file = os.path.join(os.path.dirname(__file__), "blenderpics", str(prop), prop_path)
+                        print ("printing to " + file)
+                        bpy.context.scene.render.filepath = file
+                        bpy.ops.render.render( write_still=True )
+                        prop_value += 0.1;
+                    # # Get image of min prop
+                    # mblab_humanoid.character_data[prop] = 0
+                    # mblab_humanoid.update_character(category_name = key, mode="update_all")
+                    # prop_path = str(prop+"_Min")
+                    # print(prop_path)
+                    # file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
+                    # bpy.context.scene.render.filepath = file
+                    # bpy.ops.render.render( write_still=True )
+                    # # Get image of maxed prop
+                    # mblab_humanoid.character_data[prop] = 1
+                    # mblab_humanoid.update_character(category_name = key, mode="update_all")
+                    # prop_path = str(prop+"_Max")
+                    # print(prop_path)
+                    # file = os.path.join(os.path.dirname(__file__), "blenderpics", prop_path)
+                    # bpy.context.scene.render.filepath = file
+                    # bpy.ops.render.render( write_still=True )
                     # Reset the prop
                     mblab_humanoid.character_data[prop] = 0.5
                     mblab_humanoid.update_character(category_name = key, mode="update_all")
                     print('\n')
-            print("Total props imaged:", prop_count)
+            print("Total images:", image_count)
+        return {'FINISHED'}
+
+class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
+    bl_idname = "wellvr.take_skin_preview_pictures_with_camera_button"
+    bl_label = "Take Skin Preview Pics"
+    def execute(self, context):
+        if(len(bpy.data.cameras) == 1):
+            camObj = bpy.data.objects['Camera']
+            # Create dicts
+            camLocations = {}
+            camRotations = {}
+            camLocations['Skin'] = (0.151203, -1.42162, 1.43392)
+            camRotations['Skin'] = (86.5, 0, 5.94)
+            # Skin dicts
+            skin_complexions = [0.1, 0.001, 0.650]
+            skin_hues = [0.5, 0.51, 0.485]
+            image_count = 1
+            for key, value in camLocations.items():
+                print(key, value, camRotations[key])
+                camObj.location = value
+                x,y,z = camRotations[key]
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+                for complexion_value in skin_complexions:
+                    for hue_value in skin_hues:
+                        mblab_humanoid.character_material_properties['skin_complexion'] = complexion_value
+                        mblab_humanoid.character_material_properties['skin_hue'] = hue_value
+                        mblab_humanoid.material_realtime_activated = False
+                        obj = mblab_humanoid.get_object()
+                        for material_data_prop, value in mblab_humanoid.character_material_properties.items():
+                            if 'skin_hue' in material_data_prop or 'skin_complexion' in material_data_prop:
+                                if hasattr(obj, material_data_prop):
+                                    setattr(obj, material_data_prop, value)
+                                else:
+                                    lab_logger.warning("material {0}  not found".format(material_data_prop))
+
+                        mblab_humanoid.material_realtime_activated = True
+                        mblab_humanoid.update_materials()
+
+                        skin_path = str(str(image_count)+"_skin_preview_complexion-"+str(complexion_value)+"_hue-"+str(hue_value)+".png")
+                        file = os.path.join(os.path.dirname(__file__), "images/generated_skin_previews", skin_path)
+                        print ("printing to " + file)
+                        bpy.context.scene.render.filepath = file
+                        bpy.ops.render.render( write_still=True )
+                        image_count += 1;
+
         return {'FINISHED'}
 
 class ButtonParametersOff(bpy.types.Operator):
@@ -2399,15 +2498,15 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             self.layout.label("CREATION TOOLS")
             self.layout.prop(scn, 'mblab_character_name')
 
-            if advanced_mode_is_on:
-                if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
-                    self.layout.prop(scn,'mblab_use_ik')
-                if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
-                    self.layout.prop(scn,'mblab_use_muscle')
+            # if advanced_mode_is_on:
+            if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
+                self.layout.prop(scn,'mblab_use_ik')
+            if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
+                self.layout.prop(scn,'mblab_use_muscle')
 
-                self.layout.prop(scn,'mblab_use_cycles')
-                if scn.mblab_use_cycles:
-                    self.layout.prop(scn,'mblab_use_lamps')
+            self.layout.prop(scn,'mblab_use_cycles')
+            if scn.mblab_use_cycles:
+                self.layout.prop(scn,'mblab_use_lamps')
 
             self.layout.operator('mbast.init_character')
             # uncomment this to export characters -- EasyBastioniLAB -- wellvr
@@ -2621,15 +2720,20 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     col.label("PARAMETERS")
                     col2.prop(scn, "morphingCategory")
 
+
+
                     for prop in mblab_humanoid.get_shortlist_properties_in_category(scn.morphingCategory):
                         if hasattr(obj, prop):
                             row = col.row()
-                            row.scale_y = 2.5
-                            prop_name = prop.replace("_", " ")
-                            row.operator("wellvr.generic_morph_button_minus", text=prop_name+" Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
-                            row2 = col2.row()
-                            row2.scale_y = 2.5
-                            row2.operator("wellvr.generic_morph_button_plus", text=prop_name+" Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            row.template_icon_view(scn, prop, show_labels=False, scale=10.0)
+                            row2 = col.row()
+                            row2.label(prop)
+                            # row.scale_y = 2.5
+                            # prop_name = prop.replace("_", " ")
+                            # row.operator("wellvr.generic_morph_button_minus", text=prop_name+" Min", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
+                            # row2 = col2.row()
+                            # row2.scale_y = 2.5
+                            # row2.operator("wellvr.generic_morph_button_plus", text=prop_name+" Max", icon_value=custom_icons["custom_icon"].icon_id).morphtargetprop = prop
 
                     if mblab_humanoid.exists_measure_database() and scn.mblab_show_measures:
                         col = split.column()
@@ -2732,7 +2836,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     else:
                         self.layout.operator('mbast.button_skin_off', icon=icon_collapse)
                         row = self.layout.row()
-                        row.template_icon_view(scn, "skin_previews")
+                        row.template_icon_view(scn, "skin_previews", show_labels=False, scale=10.0)
 
 
                 if advanced_mode_is_on:
@@ -2785,7 +2889,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         else:
                             box.operator("mbast.corrective_disable", icon='X')
 
-                # self.layout..operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
+                # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
+                self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take SKin Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
                 # self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
                 # self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
@@ -2820,15 +2925,825 @@ def register():
     icons_dir = os.path.join(os.path.dirname(__file__), "icons")
     custom_icons.load("custom_icon", os.path.join(icons_dir, "icon.png"), 'IMAGE')
     bpy.utils.register_module(__name__)
-    pcoll = bpy.utils.previews.new()
 
-    # Generate list for
-    pcoll.images_location = os.path.join(os.path.dirname(__file__), "images/skin_previews")
-    preview_collections["skin_previews"] = pcoll
+    # Generate list for skins
+    pcoll_skins = bpy.utils.previews.new()
+    pcoll_skins.images_location = os.path.join(os.path.dirname(__file__), "images/skin_previews")
+    preview_collections["skin_previews"] = pcoll_skins
     bpy.types.Scene.skin_previews = EnumProperty(
         items=generate_skin_previews(),
         update=skin_previews_update
     )
+
+    ### Generate lists for morph targets previews ###
+    # Generate previews for Cheeks
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_CreaseExt"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_CreaseExt = EnumProperty(
+        items=generate_morph_previews("Cheeks_CreaseExt"),
+        update=morph_previews_update_closure("Cheeks_CreaseExt")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_InfraVolume"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_InfraVolume = EnumProperty(
+        items=generate_morph_previews("Cheeks_InfraVolume"),
+        update=morph_previews_update_closure("Cheeks_InfraVolume")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_Mass"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_Mass = EnumProperty(
+        items=generate_morph_previews("Cheeks_Mass"),
+        update=morph_previews_update_closure("Cheeks_Mass")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_SideCrease"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_SideCrease = EnumProperty(
+        items=generate_morph_previews("Cheeks_SideCrease"),
+        update=morph_previews_update_closure("Cheeks_SideCrease")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_Tone"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_Tone = EnumProperty(
+        items=generate_morph_previews("Cheeks_Tone"),
+        update=morph_previews_update_closure("Cheeks_Tone")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_Zygom"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_Zygom = EnumProperty(
+        items=generate_morph_previews("Cheeks_Zygom"),
+        update=morph_previews_update_closure("Cheeks_Zygom")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Cheeks_ZygomPosZ"] = pcoll_morphs
+    bpy.types.Scene.Cheeks_ZygomPosZ = EnumProperty(
+        items=generate_morph_previews("Cheeks_ZygomPosZ"),
+        update=morph_previews_update_closure("Cheeks_ZygomPosZ")
+    )
+
+    # Generate previews for Chin
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Chin_Cleft"] = pcoll_morphs
+    bpy.types.Scene.Chin_Cleft = EnumProperty(
+        items=generate_morph_previews("Chin_Cleft"),
+        update=morph_previews_update_closure("Chin_Cleft")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Chin_Prominence"] = pcoll_morphs
+    bpy.types.Scene.Chin_Prominence = EnumProperty(
+        items=generate_morph_previews("Chin_Prominence"),
+        update=morph_previews_update_closure("Chin_Prominence")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Chin_SizeX"] = pcoll_morphs
+    bpy.types.Scene.Chin_SizeX = EnumProperty(
+        items=generate_morph_previews("Chin_SizeX"),
+        update=morph_previews_update_closure("Chin_SizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Chin_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Chin_SizeZ = EnumProperty(
+        items=generate_morph_previews("Chin_SizeZ"),
+        update=morph_previews_update_closure("Chin_SizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Chin_Tone"] = pcoll_morphs
+    bpy.types.Scene.Chin_Tone = EnumProperty(
+        items=generate_morph_previews("Chin_Tone"),
+        update=morph_previews_update_closure("Chin_Tone")
+    )
+
+    #Generate previews for Ears
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_Lobe"] = pcoll_morphs
+    bpy.types.Scene.Ears_Lobe = EnumProperty(
+        items=generate_morph_previews("Ears_Lobe"),
+        update=morph_previews_update_closure("Ears_Lobe")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_LocY"] = pcoll_morphs
+    bpy.types.Scene.Ears_LocY = EnumProperty(
+        items=generate_morph_previews("Ears_LocY"),
+        update=morph_previews_update_closure("Ears_LocY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_LocZ"] = pcoll_morphs
+    bpy.types.Scene.Ears_LocZ = EnumProperty(
+        items=generate_morph_previews("Ears_LocZ"),
+        update=morph_previews_update_closure("Ears_LocZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_RotX"] = pcoll_morphs
+    bpy.types.Scene.Ears_RotX = EnumProperty(
+        items=generate_morph_previews("Ears_RotX"),
+        update=morph_previews_update_closure("Ears_RotX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_Round"] = pcoll_morphs
+    bpy.types.Scene.Ears_Round = EnumProperty(
+        items=generate_morph_previews("Ears_Round"),
+        update=morph_previews_update_closure("Ears_Round")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_SizeX"] = pcoll_morphs
+    bpy.types.Scene.Ears_SizeX = EnumProperty(
+        items=generate_morph_previews("Ears_SizeX"),
+        update=morph_previews_update_closure("Ears_SizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_SizeY"] = pcoll_morphs
+    bpy.types.Scene.Ears_SizeY = EnumProperty(
+        items=generate_morph_previews("Ears_SizeY"),
+        update=morph_previews_update_closure("Ears_SizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Ears_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Ears_SizeZ = EnumProperty(
+        items=generate_morph_previews("Ears_SizeZ"),
+        update=morph_previews_update_closure("Ears_SizeZ")
+    )
+
+    # Generate previews for Eyebrows
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_Angle"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_Angle = EnumProperty(
+        items=generate_morph_previews("Eyebrows_Angle"),
+        update=morph_previews_update_closure("Eyebrows_Angle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_Droop"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_Droop = EnumProperty(
+        items=generate_morph_previews("Eyebrows_Droop"),
+        update=morph_previews_update_closure("Eyebrows_Droop")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_PosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_PosZ = EnumProperty(
+        items=generate_morph_previews("Eyebrows_PosZ"),
+        update=morph_previews_update_closure("Eyebrows_PosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_Ridge"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_Ridge = EnumProperty(
+        items=generate_morph_previews("Eyebrows_Ridge"),
+        update=morph_previews_update_closure("Eyebrows_Ridge")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_SizeY"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_SizeY = EnumProperty(
+        items=generate_morph_previews("Eyebrows_SizeY"),
+        update=morph_previews_update_closure("Eyebrows_SizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyebrows_Tone"] = pcoll_morphs
+    bpy.types.Scene.Eyebrows_Tone = EnumProperty(
+        items=generate_morph_previews("Eyebrows_Tone"),
+        update=morph_previews_update_closure("Eyebrows_Tone")
+    )
+
+    # Generate previews for Eyelids
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_Angle"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_Angle = EnumProperty(
+        items=generate_morph_previews("Eyelids_Angle"),
+        update=morph_previews_update_closure("Eyelids_Angle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_Crease"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_Crease = EnumProperty(
+        items=generate_morph_previews("Eyelids_Crease"),
+        update=morph_previews_update_closure("Eyelids_Crease")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_InnerPosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_InnerPosZ = EnumProperty(
+        items=generate_morph_previews("Eyelids_InnerPosZ"),
+        update=morph_previews_update_closure("Eyelids_InnerPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_LowerCurve"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_LowerCurve = EnumProperty(
+        items=generate_morph_previews("Eyelids_LowerCurve"),
+        update=morph_previews_update_closure("Eyelids_LowerCurve")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_MiddlePosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_MiddlePosZ = EnumProperty(
+        items=generate_morph_previews("Eyelids_MiddlePosZ"),
+        update=morph_previews_update_closure("Eyelids_MiddlePosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_OuterPosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_OuterPosZ = EnumProperty(
+        items=generate_morph_previews("Eyelids_OuterPosZ"),
+        update=morph_previews_update_closure("Eyelids_OuterPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyelids_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Eyelids_SizeZ = EnumProperty(
+        items=generate_morph_previews("Eyelids_SizeZ"),
+        update=morph_previews_update_closure("Eyelids_SizeZ")
+    )
+
+    # Generate previews for Eyes
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_BagProminence"] = pcoll_morphs
+    bpy.types.Scene.Eyes_BagProminence = EnumProperty(
+        items=generate_morph_previews("Eyes_BagProminence"),
+        update=morph_previews_update_closure("Eyes_BagProminence")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_BagSize"] = pcoll_morphs
+    bpy.types.Scene.Eyes_BagSize = EnumProperty(
+        items=generate_morph_previews("Eyes_BagSize"),
+        update=morph_previews_update_closure("Eyes_BagSize")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_Crosscalibration"] = pcoll_morphs
+    bpy.types.Scene.Eyes_Crosscalibration = EnumProperty(
+        items=generate_morph_previews("Eyes_Crosscalibration"),
+        update=morph_previews_update_closure("Eyes_Crosscalibration")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_InnerPosX"] = pcoll_morphs
+    bpy.types.Scene.Eyes_InnerPosX = EnumProperty(
+        items=generate_morph_previews("Eyes_InnerPosX"),
+        update=morph_previews_update_closure("Eyes_InnerPosX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_InnerPosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyes_InnerPosZ = EnumProperty(
+        items=generate_morph_previews("Eyes_InnerPosZ"),
+        update=morph_previews_update_closure("Eyes_InnerPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_innerSinus"] = pcoll_morphs
+    bpy.types.Scene.Eyes_innerSinus = EnumProperty(
+        items=generate_morph_previews("Eyes_innerSinus"),
+        update=morph_previews_update_closure("Eyes_innerSinus")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_IrisSize"] = pcoll_morphs
+    bpy.types.Scene.Eyes_IrisSize = EnumProperty(
+        items=generate_morph_previews("Eyes_IrisSize"),
+        update=morph_previews_update_closure("Eyes_IrisSize")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_OuterPosX"] = pcoll_morphs
+    bpy.types.Scene.Eyes_OuterPosX = EnumProperty(
+        items=generate_morph_previews("Eyes_OuterPosX"),
+        update=morph_previews_update_closure("Eyes_OuterPosX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_OuterPosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyes_OuterPosZ = EnumProperty(
+        items=generate_morph_previews("Eyes_OuterPosZ"),
+        update=morph_previews_update_closure("Eyes_OuterPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_PosX"] = pcoll_morphs
+    bpy.types.Scene.Eyes_PosX = EnumProperty(
+        items=generate_morph_previews("Eyes_PosX"),
+        update=morph_previews_update_closure("Eyes_PosX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_PosZ"] = pcoll_morphs
+    bpy.types.Scene.Eyes_PosZ = EnumProperty(
+        items=generate_morph_previews("Eyes_PosZ"),
+        update=morph_previews_update_closure("Eyes_PosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_Size"] = pcoll_morphs
+    bpy.types.Scene.Eyes_Size = EnumProperty(
+        items=generate_morph_previews("Eyes_Size"),
+        update=morph_previews_update_closure("Eyes_Size")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Eyes_SizeZ = EnumProperty(
+        items=generate_morph_previews("Eyes_SizeZ"),
+        update=morph_previews_update_closure("Eyes_SizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_TypeAlmond"] = pcoll_morphs
+    bpy.types.Scene.Eyes_TypeAlmond = EnumProperty(
+        items=generate_morph_previews("Eyes_TypeAlmond"),
+        update=morph_previews_update_closure("Eyes_TypeAlmond")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Eyes_TypeHooded"] = pcoll_morphs
+    bpy.types.Scene.Eyes_TypeHooded = EnumProperty(
+        items=generate_morph_previews("Eyes_TypeHooded"),
+        update=morph_previews_update_closure("Eyes_TypeHooded")
+    )
+
+    # Generate previews for Face
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Face_Ellipsoid"] = pcoll_morphs
+    bpy.types.Scene.Face_Ellipsoid = EnumProperty(
+        items=generate_morph_previews("Face_Ellipsoid"),
+        update=morph_previews_update_closure("Face_Ellipsoid")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Face_Parallelepiped"] = pcoll_morphs
+    bpy.types.Scene.Face_Parallelepiped = EnumProperty(
+        items=generate_morph_previews("Face_Parallelepiped"),
+        update=morph_previews_update_closure("Face_Parallelepiped")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Face_Triangle"] = pcoll_morphs
+    bpy.types.Scene.Face_Triangle = EnumProperty(
+        items=generate_morph_previews("Face_Triangle"),
+        update=morph_previews_update_closure("Face_Triangle")
+    )
+
+    # Generate previews for Forehead
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Forehead_Angle"] = pcoll_morphs
+    bpy.types.Scene.Forehead_Angle = EnumProperty(
+        items=generate_morph_previews("Forehead_Angle"),
+        update=morph_previews_update_closure("Forehead_Angle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Forehead_Curve"] = pcoll_morphs
+    bpy.types.Scene.Forehead_Curve = EnumProperty(
+        items=generate_morph_previews("Forehead_Curve"),
+        update=morph_previews_update_closure("Forehead_Curve")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Forehead_SizeX"] = pcoll_morphs
+    bpy.types.Scene.Forehead_SizeX = EnumProperty(
+        items=generate_morph_previews("Forehead_SizeX"),
+        update=morph_previews_update_closure("Forehead_SizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Forehead_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Forehead_SizeZ = EnumProperty(
+        items=generate_morph_previews("Forehead_SizeZ"),
+        update=morph_previews_update_closure("Forehead_SizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Forehead_Temple"] = pcoll_morphs
+    bpy.types.Scene.Forehead_Temple = EnumProperty(
+        items=generate_morph_previews("Forehead_Temple"),
+        update=morph_previews_update_closure("Forehead_Temple")
+    )
+
+    # Generate previews for Head
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_CraniumDolichocephalic"] = pcoll_morphs
+    bpy.types.Scene.Head_CraniumDolichocephalic = EnumProperty(
+        items=generate_morph_previews("Head_CraniumDolichocephalic"),
+        update=morph_previews_update_closure("Head_CraniumDolichocephalic")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_CraniumPentagonoides"] = pcoll_morphs
+    bpy.types.Scene.Head_CraniumPentagonoides = EnumProperty(
+        items=generate_morph_previews("Head_CraniumPentagonoides"),
+        update=morph_previews_update_closure("Head_CraniumPentagonoides")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_CraniumPlatycephalus"] = pcoll_morphs
+    bpy.types.Scene.Head_CraniumPlatycephalus = EnumProperty(
+        items=generate_morph_previews("Head_CraniumPlatycephalus"),
+        update=morph_previews_update_closure("Head_CraniumPlatycephalus")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_Flat"] = pcoll_morphs
+    bpy.types.Scene.Head_Flat = EnumProperty(
+        items=generate_morph_previews("Head_Flat"),
+        update=morph_previews_update_closure("Head_Flat")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_Nucha"] = pcoll_morphs
+    bpy.types.Scene.Head_Nucha = EnumProperty(
+        items=generate_morph_previews("Head_Nucha"),
+        update=morph_previews_update_closure("Head_Nucha")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_Size"] = pcoll_morphs
+    bpy.types.Scene.Head_Size = EnumProperty(
+        items=generate_morph_previews("Head_Size"),
+        update=morph_previews_update_closure("Head_Size")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_SizeX"] = pcoll_morphs
+    bpy.types.Scene.Head_SizeX = EnumProperty(
+        items=generate_morph_previews("Head_SizeX"),
+        update=morph_previews_update_closure("Head_SizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_SizeY"] = pcoll_morphs
+    bpy.types.Scene.Head_SizeY = EnumProperty(
+        items=generate_morph_previews("Head_SizeY"),
+        update=morph_previews_update_closure("Head_SizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Head_SizeZ"] = pcoll_morphs
+    bpy.types.Scene.Head_SizeZ = EnumProperty(
+        items=generate_morph_previews("Head_SizeZ"),
+        update=morph_previews_update_closure("Head_SizeZ")
+    )
+
+    # Generate previews for Jaw
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Jaw_Angle"] = pcoll_morphs
+    bpy.types.Scene.Jaw_Angle = EnumProperty(
+        items=generate_morph_previews("Jaw_Angle"),
+        update=morph_previews_update_closure("Jaw_Angle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Jaw_Angle2"] = pcoll_morphs
+    bpy.types.Scene.Jaw_Angle2 = EnumProperty(
+        items=generate_morph_previews("Jaw_Angle2"),
+        update=morph_previews_update_closure("Jaw_Angle2")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Jaw_LocY"] = pcoll_morphs
+    bpy.types.Scene.Jaw_LocY = EnumProperty(
+        items=generate_morph_previews("Jaw_LocY"),
+        update=morph_previews_update_closure("Jaw_LocY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Jaw_Prominence"] = pcoll_morphs
+    bpy.types.Scene.Jaw_Prominence = EnumProperty(
+        items=generate_morph_previews("Jaw_Prominence"),
+        update=morph_previews_update_closure("Jaw_Prominence")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Jaw_ScaleX"] = pcoll_morphs
+    bpy.types.Scene.Jaw_ScaleX = EnumProperty(
+        items=generate_morph_previews("Jaw_ScaleX"),
+        update=morph_previews_update_closure("Jaw_ScaleX")
+    )
+
+    # Generate previews for Mouth
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_CornersPosZ"] = pcoll_morphs
+    bpy.types.Scene.Mouth_CornersPosZ = EnumProperty(
+        items=generate_morph_previews("Mouth_CornersPosZ"),
+        update=morph_previews_update_closure("Mouth_CornersPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_LowerlipExt"] = pcoll_morphs
+    bpy.types.Scene.Mouth_LowerlipExt = EnumProperty(
+        items=generate_morph_previews("Mouth_LowerlipExt"),
+        update=morph_previews_update_closure("Mouth_LowerlipExt")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_LowerlipSizeZ"] = pcoll_morphs
+    bpy.types.Scene.Mouth_LowerlipSizeZ = EnumProperty(
+        items=generate_morph_previews("Mouth_LowerlipSizeZ"),
+        update=morph_previews_update_closure("Mouth_LowerlipSizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_LowerlipVolume"] = pcoll_morphs
+    bpy.types.Scene.Mouth_LowerlipVolume = EnumProperty(
+        items=generate_morph_previews("Mouth_LowerlipVolume"),
+        update=morph_previews_update_closure("Mouth_LowerlipVolume")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_PhiltrumProminence"] = pcoll_morphs
+    bpy.types.Scene.Mouth_PhiltrumProminence = EnumProperty(
+        items=generate_morph_previews("Mouth_PhiltrumProminence"),
+        update=morph_previews_update_closure("Mouth_PhiltrumProminence")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_PhiltrumSizeX"] = pcoll_morphs
+    bpy.types.Scene.Mouth_PhiltrumSizeX = EnumProperty(
+        items=generate_morph_previews("Mouth_PhiltrumSizeX"),
+        update=morph_previews_update_closure("Mouth_PhiltrumSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_PhiltrumSizeY"] = pcoll_morphs
+    bpy.types.Scene.Mouth_PhiltrumSizeY = EnumProperty(
+        items=generate_morph_previews("Mouth_PhiltrumSizeY"),
+        update=morph_previews_update_closure("Mouth_PhiltrumSizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_PosY"] = pcoll_morphs
+    bpy.types.Scene.Mouth_PosY = EnumProperty(
+        items=generate_morph_previews("Mouth_PosY"),
+        update=morph_previews_update_closure("Mouth_PosY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_PosZ"] = pcoll_morphs
+    bpy.types.Scene.Mouth_PosZ = EnumProperty(
+        items=generate_morph_previews("Mouth_PosZ"),
+        update=morph_previews_update_closure("Mouth_PosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_Protusion"] = pcoll_morphs
+    bpy.types.Scene.Mouth_Protusion = EnumProperty(
+        items=generate_morph_previews("Mouth_Protusion"),
+        update=morph_previews_update_closure("Mouth_Protusion")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_SideCrease"] = pcoll_morphs
+    bpy.types.Scene.Mouth_SideCrease = EnumProperty(
+        items=generate_morph_previews("Mouth_SideCrease"),
+        update=morph_previews_update_closure("Mouth_SideCrease")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_SizeX"] = pcoll_morphs
+    bpy.types.Scene.Mouth_SizeX = EnumProperty(
+        items=generate_morph_previews("Mouth_SizeX"),
+        update=morph_previews_update_closure("Mouth_SizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_UpperlipExt"] = pcoll_morphs
+    bpy.types.Scene.Mouth_UpperlipExt = EnumProperty(
+        items=generate_morph_previews("Mouth_UpperlipExt"),
+        update=morph_previews_update_closure("Mouth_UpperlipExt")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_UpperlipSizeZ"] = pcoll_morphs
+    bpy.types.Scene.Mouth_UpperlipSizeZ = EnumProperty(
+        items=generate_morph_previews("Mouth_UpperlipSizeZ"),
+        update=morph_previews_update_closure("Mouth_UpperlipSizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Mouth_UpperlipVolume"] = pcoll_morphs
+    bpy.types.Scene.Mouth_UpperlipVolume = EnumProperty(
+        items=generate_morph_previews("Mouth_UpperlipVolume"),
+        update=morph_previews_update_closure("Mouth_UpperlipVolume")
+    )
+
+    # Generate previews for Nose
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BallSizeX"] = pcoll_morphs
+    bpy.types.Scene.Nose_BallSizeX = EnumProperty(
+        items=generate_morph_previews("Nose_BallSizeX"),
+        update=morph_previews_update_closure("Nose_BallSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BasePosZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_BasePosZ = EnumProperty(
+        items=generate_morph_previews("Nose_BasePosZ"),
+        update=morph_previews_update_closure("Nose_BasePosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BaseShape"] = pcoll_morphs
+    bpy.types.Scene.Nose_BaseShape = EnumProperty(
+        items=generate_morph_previews("Nose_BaseShape"),
+        update=morph_previews_update_closure("Nose_BaseShape")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BaseSizeX"] = pcoll_morphs
+    bpy.types.Scene.Nose_BaseSizeX = EnumProperty(
+        items=generate_morph_previews("Nose_BaseSizeX"),
+        update=morph_previews_update_closure("Nose_BaseSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BaseSizeZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_BaseSizeZ = EnumProperty(
+        items=generate_morph_previews("Nose_BaseSizeZ"),
+        update=morph_previews_update_closure("Nose_BaseSizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_BridgeSizeX"] = pcoll_morphs
+    bpy.types.Scene.Nose_BridgeSizeX = EnumProperty(
+        items=generate_morph_previews("Nose_BridgeSizeX"),
+        update=morph_previews_update_closure("Nose_BridgeSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_Curve"] = pcoll_morphs
+    bpy.types.Scene.Nose_Curve = EnumProperty(
+        items=generate_morph_previews("Nose_Curve"),
+        update=morph_previews_update_closure("Nose_Curve")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_GlabellaPosZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_GlabellaPosZ = EnumProperty(
+        items=generate_morph_previews("Nose_GlabellaPosZ"),
+        update=morph_previews_update_closure("Nose_GlabellaPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_GlabellaSizeX"] = pcoll_morphs
+    bpy.types.Scene.Nose_GlabellaSizeX = EnumProperty(
+        items=generate_morph_previews("Nose_GlabellaSizeX"),
+        update=morph_previews_update_closure("Nose_GlabellaSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_GlabellaSizeY"] = pcoll_morphs
+    bpy.types.Scene.Nose_GlabellaSizeY = EnumProperty(
+        items=generate_morph_previews("Nose_GlabellaSizeY"),
+        update=morph_previews_update_closure("Nose_GlabellaSizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilCrease"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilCrease = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilCrease"),
+        update=morph_previews_update_closure("Nose_NostrilCrease")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilDiam"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilDiam = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilDiam"),
+        update=morph_previews_update_closure("Nose_NostrilDiam")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilPosZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilPosZ = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilPosZ"),
+        update=morph_previews_update_closure("Nose_NostrilPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilSizeX"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilSizeX = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilSizeX"),
+        update=morph_previews_update_closure("Nose_NostrilSizeX")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilSizeY"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilSizeY = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilSizeY"),
+        update=morph_previews_update_closure("Nose_NostrilSizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_NostrilSizeZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_NostrilSizeZ = EnumProperty(
+        items=generate_morph_previews("Nose_NostrilSizeZ"),
+        update=morph_previews_update_closure("Nose_NostrilSizeZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_PosY"] = pcoll_morphs
+    bpy.types.Scene.Nose_PosY = EnumProperty(
+        items=generate_morph_previews("Nose_PosY"),
+        update=morph_previews_update_closure("Nose_PosY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_SeptumFlat"] = pcoll_morphs
+    bpy.types.Scene.Nose_SeptumFlat = EnumProperty(
+        items=generate_morph_previews("Nose_SeptumFlat"),
+        update=morph_previews_update_closure("Nose_SeptumFlat")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_SeptumRolled"] = pcoll_morphs
+    bpy.types.Scene.Nose_SeptumRolled = EnumProperty(
+        items=generate_morph_previews("Nose_SeptumRolled"),
+        update=morph_previews_update_closure("Nose_SeptumRolled")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_SizeY"] = pcoll_morphs
+    bpy.types.Scene.Nose_SizeY = EnumProperty(
+        items=generate_morph_previews("Nose_SizeY"),
+        update=morph_previews_update_closure("Nose_SizeY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_TipAngle"] = pcoll_morphs
+    bpy.types.Scene.Nose_TipAngle = EnumProperty(
+        items=generate_morph_previews("Nose_TipAngle"),
+        update=morph_previews_update_closure("Nose_TipAngle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_TipPosY"] = pcoll_morphs
+    bpy.types.Scene.Nose_TipPosY = EnumProperty(
+        items=generate_morph_previews("Nose_TipPosY"),
+        update=morph_previews_update_closure("Nose_TipPosY")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_TipPosZ"] = pcoll_morphs
+    bpy.types.Scene.Nose_TipPosZ = EnumProperty(
+        items=generate_morph_previews("Nose_TipPosZ"),
+        update=morph_previews_update_closure("Nose_TipPosZ")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_TipSize"] = pcoll_morphs
+    bpy.types.Scene.Nose_TipSize = EnumProperty(
+        items=generate_morph_previews("Nose_TipSize"),
+        update=morph_previews_update_closure("Nose_TipSize")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_WingAngle"] = pcoll_morphs
+    bpy.types.Scene.Nose_WingAngle = EnumProperty(
+        items=generate_morph_previews("Nose_WingAngle"),
+        update=morph_previews_update_closure("Nose_WingAngle")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_WingBackFlat"] = pcoll_morphs
+    bpy.types.Scene.Nose_WingBackFlat = EnumProperty(
+        items=generate_morph_previews("Nose_WingBackFlat"),
+        update=morph_previews_update_closure("Nose_WingBackFlat")
+    )
+    pcoll_morphs = bpy.utils.previews.new()
+    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
+    preview_collections["Nose_WingBump"] = pcoll_morphs
+    bpy.types.Scene.Nose_WingBump = EnumProperty(
+        items=generate_morph_previews("Nose_WingBump"),
+        update=morph_previews_update_closure("Nose_WingBump")
+    )
+
 
 def unregister():
     global custom_icons
@@ -2841,7 +3756,8 @@ def unregister():
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)
     preview_collections.clear()
-    del bpy.types.Scene.skin_previews
+    bpy.types.Scene.delete_all_properties()
+    # del bpy.types.Scene.skin_previews
 
     bpy.utils.unregister_module(__name__)
 
