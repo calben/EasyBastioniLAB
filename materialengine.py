@@ -18,10 +18,9 @@ import array
 import bpy
 import os
 import time
-import logging
 import json
 from . import algorithms
-lab_logger = logging.getLogger('manuelbastionilab_logger')
+
 class MaterialEngine:
 
     def __init__(self, obj_name, character_config):
@@ -136,13 +135,13 @@ class MaterialEngine:
 
 
     def assign_image_to_node(self, material_name, node_name, image_name):
-        lab_logger.info("Assigning the image {0} to node {1}".format(image_name,node_name))
+        algorithms.print_log_report("INFO","Assigning the image {0} to node {1}".format(image_name,node_name))
         mat_node = algorithms.get_material_node(material_name, node_name)
         mat_image = algorithms.get_image(image_name)
         if mat_image:
             algorithms.set_node_image(mat_node,mat_image)
         else:
-            lab_logger.warning("Node assignment failed. Image not found: {0}".format(image_name))
+            algorithms.print_log_report("WARNING","Node assignment failed. Image not found: {0}".format(image_name))
 
 
     def get_material_parameters(self):
@@ -205,10 +204,10 @@ class MaterialEngine:
             disp_data_image = algorithms.get_image(disp_data_image_name)
             if disp_data_image:
                 disp_size = disp_data_image.size
-                lab_logger.info("Creating the displacement image from data image {0} with size {1}x{2}".format(disp_data_image.name, disp_size[0], disp_size[1]))
+                algorithms.print_log_report("INFO","Creating the displacement image from data image {0} with size {1}x{2}".format(disp_data_image.name, disp_size[0], disp_size[1]))
                 disp_img = algorithms.new_image(self.image_file_names["body_displ"], disp_size)
             else:
-                lab_logger.warning("Cannot create the displacement modifier: data image not found: {0}".format(algorithms.simple_path(self.image_file_paths["displ_data"])))
+                algorithms.print_log_report("WARNING","Cannot create the displacement modifier: data image not found: {0}".format(algorithms.simple_path(self.image_file_paths["displ_data"])))
 
 
     def calculate_displacement_texture(self,age_factor,tone_factor,mass_factor):
@@ -223,27 +222,27 @@ class MaterialEngine:
                 if self.image_file_names["body_displ"] in bpy.data.images:
                     disp_img = bpy.data.images[self.image_file_names["body_displ"]]
                 else:
-                    lab_logger.warning("Displace image not found: {0}".format(self.image_file_names["body_displ"]))
+                    algorithms.print_log_report("WARNING","Displace image not found: {0}".format(self.image_file_names["body_displ"]))
                     return
 
                 if self.generated_disp_modifier_ID in bpy.data.textures:
                     disp_tex  = bpy.data.textures[self.generated_disp_modifier_ID]
                 else:
-                    lab_logger.warning("Displace texture not found: {0}".format(self.generated_disp_modifier))
+                    algorithms.print_log_report("WARNING","Displace texture not found: {0}".format(self.generated_disp_modifier))
                     return            
             
                 if algorithms.are_squared_images(disp_data_image, disp_img):
                     algorithms.scale_image_to_fit(disp_data_image, disp_img)
                     disp_img.pixels =  self.calculate_disp_pixels(disp_data_image,age_factor,tone_factor,mass_factor)
                     disp_tex.image = disp_img
-                    lab_logger.info("Displacement calculated in {0} seconds".format(time.time()-time1))
+                    algorithms.print_log_report("INFO","Displacement calculated in {0} seconds".format(time.time()-time1))
             else:
-                lab_logger.error("Displace data image not found: {0}".format(algorithms.simple_path(self.image_file_paths["displ_data"])))
+                algorithms.print_log_report("ERROR","Displace data image not found: {0}".format(algorithms.simple_path(self.image_file_paths["displ_data"])))
 
 
     def save_texture(self, filepath, shader_target):
         img_name = self.image_file_names[shader_target]
-        lab_logger.info("Saving image {0} in {1}".format(img_name,algorithms.simple_path(filepath)))
+        algorithms.print_log_report("INFO","Saving image {0} in {1}".format(img_name,algorithms.simple_path(filepath)))
         algorithms.save_image(img_name, filepath)
         algorithms.load_image(filepath) #Load the just saved image to replace the current one
         self.image_file_names[shader_target] = os.path.basename(filepath)

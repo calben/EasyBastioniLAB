@@ -17,10 +17,6 @@ import bpy
 from . import algorithms
 import os, json, time
 import mathutils
-import logging
-
-lab_logger = logging.getLogger('manuelbastionilab_logger')
-
 
 class ProxyEngine:
 
@@ -28,39 +24,95 @@ class ProxyEngine:
         self.has_data = False
         self.data_path = algorithms.get_data_path()
         self.templates_library = algorithms.get_blendlibrary_path()
+
         self.assets_path = os.path.join(self.data_path,"assets")
         self.assets_models = algorithms.generate_items_list(self.assets_path, "blend")
-        self.corrective_modifier_name = "mbastlab_corrective_modifier"
-        self.mask_modifier_name = "mbastlab_mask_modifier"
+
+        self.corrective_modifier_name = "mbastlab_proxy_smooth_modifier"
+        #self.mask_modifier_name = "mbastlab_mask_modifier"
         self.proxy_armature_modifier = "mbastlab_proxy_armature"
 
+
+    def update_assets_models(self):
+        scn = bpy.context.scene
+        if os.path.isdir(scn.mblab_proxy_library):
+            self.assets_path = scn.mblab_proxy_library            
+        else:
+            self.assets_path = os.path.join(self.data_path,"assets")     
+            
+        self.assets_models = algorithms.generate_items_list(self.assets_path, "blend")
+            
+
     def load_asset(self, assetname):
-        scn = bpy.context.scene        
+        scn = bpy.context.scene
         asset_path = os.path.join(self.assets_path,assetname+".blend")
         algorithms.append_object_from_library(asset_path, [assetname])
-        
+
 
     def transfer_weights(self, body, proxy):
 
         body_kd_tree = algorithms.kdtree_from_mesh_vertices(body.data)
 
-        verts_weights = [[] for v in body.data.vertices]
+        fit_shapekey = algorithms.get_shapekey(proxy, "mbastlab_proxyfit")
+        if fit_shapekey:
+            proxy_vertices = fit_shapekey.data
+        else:
+            proxy_vertices = proxy.data.vertices
+            algorithms.print_log_report("WARNING","Weights transfer executed without fitting (No fit shapekey found)")
+
+
+
+        body_verts_weights = [[] for v in body.data.vertices]
         for grp in body.vertex_groups:
-            for idx, w_data in enumerate(verts_weights):
+            for idx, w_data in enumerate(body_verts_weights):
                 try:
                     w_data.append([grp.name,grp.weight(idx)])
                 except:
                     pass #TODO: idx in grp.weight
 
-        for p_idx, proxy_vert in enumerate(proxy.data.vertices):
-            nearest_body_vert_data = body_kd_tree.find(proxy_vert.co)
-            body_vert_idx = nearest_body_vert_data[1]
+        for p_idx, proxy_vert in enumerate(proxy_vertices):
 
-            group_data = verts_weights[body_vert_idx]
-            for g_data in group_data:
-                if len(g_data) > 0:
-                    group_name = g_data[0]
-                    vert_weight = g_data[1]
+            proxy_vert_weights = {}
+            nearest_body_vert = body_kd_tree.find(proxy_vert.co)
+            min_dist =  nearest_body_vert[2]
+
+            nearest_body_verts = body_kd_tree.find_range(proxy_vert.co,min_dist*2)
+
+
+            for nearest_body_vert_data in nearest_body_verts:
+
+                body_vert_idx = nearest_body_vert_data[1]
+                body_vert_dist = nearest_body_vert_data[2]
+
+                if body_vert_dist != 0:
+                    magnitude = min_dist/body_vert_dist
+                else:
+                    magnitude = 1
+
+
+                group_data = body_verts_weights[body_vert_idx]
+
+                for g_data in group_data:
+                    if len(g_data) > 0:
+                        group_name = g_data[0]
+                        vert_weight = g_data[1]
+
+                    if group_name in proxy_vert_weights:
+                        proxy_vert_weights[group_name] += vert_weight*magnitude
+                    else:
+                        proxy_vert_weights[group_name] = vert_weight*magnitude
+
+
+            #Weights normalize
+            weights_sum = 0
+            for vert_weight in proxy_vert_weights.values():
+                weights_sum += vert_weight
+
+            for group_name,vert_weight in proxy_vert_weights.items():
+                proxy_vert_weights[group_name] = vert_weight/weights_sum
+
+
+            for group_name,vert_weight in proxy_vert_weights.items():
 
                     if group_name not in proxy.vertex_groups:
                         proxy.vertex_groups.new(name=group_name)
@@ -83,67 +135,91 @@ class ProxyEngine:
 
         parameters = {"object":armat}
         armature_modifier = algorithms.new_modifier(proxy, self.proxy_armature_modifier,'ARMATURE', parameters)
+        return armature_modifier
 
-    def add_mask_modifier(self, obj, vertgroup_name):
-        parameters = {"vertex_group":vertgroup_name,"invert_vertex_group":True}
-        algorithms.new_modifier(obj, self.mask_modifier_name, 'MASK', parameters)
+    # def add_mask_modifier(self, body, mask_name):
+        # parameters = {"vertex_group":mask_name,"invert_vertex_group":True}
+        # algorithms.new_modifier(body, mask_name, 'MASK', parameters)
 
     def calibrate_proxy_object(self,proxy):
-        old_version_sk = algorithms.get_shapekey(proxy,"Fitted")
-        if old_version_sk:
-            old_version_sk.value = 0
-        if not algorithms.get_shapekey(proxy,"mbastlab_proxyfit"):
-            algorithms.apply_object_transformation(proxy)
-        if not algorithms.get_shapekey_reference(proxy):
-            algorithms.new_shapekey(proxy, "Basis")
+        if proxy != None:
+            old_version_sk = algorithms.get_shapekey(proxy,"Fitted")
+            if old_version_sk:
+                old_version_sk.value = 0
+            if not algorithms.get_shapekey(proxy,"mbastlab_proxyfit"):
+                algorithms.apply_object_transformation(proxy)
+            if not algorithms.get_shapekey_reference(proxy):
+                algorithms.new_shapekey(proxy, "Basis")
 
     def remove_fitting(self):
         status, proxy, body = self.get_proxy_fitting_ingredients()
+        mask_name = "mbastlab_mask_" + proxy.name
         if status == "OK":
             algorithms.remove_shapekeys_all(proxy)
             proxy.matrix_world.identity()
+            self.remove_body_mask(body, mask_name)
+
+
+    def get_proxy_template_design(self, proxy_obj):
+
+        g_identifiers1 = ["girl", "woman", "female"]
+        g_identifiers2 = ["boy", "man", "male"]
+
+        if "anime" in proxy_obj.name.lower():
+            for g_id in g_identifiers1:
+                if g_id in proxy_obj.name.lower():
+                    return "anime_female"
+            for g_id in g_identifiers2:
+                if g_id in proxy_obj.name.lower():
+                    return "anime_male"
+        else:
+            for g_id in g_identifiers1:
+                if g_id in proxy_obj.name.lower():
+                    return "human_female"
+            for g_id in g_identifiers2:
+                if g_id in proxy_obj.name.lower():
+                    return "human_male"
+
+        return None
+
 
 
     def validate_assets_compatibility(self, proxy_obj, reference_obj):
-        if ("designed_for" in algorithms.get_object_keys(proxy_obj)):
-            designed_for = proxy_obj["designed_for"]
-            id_template = algorithms.get_template_model(reference_obj)
-            if id_template != None:                
-                if designed_for in id_template:            
+
+        proxy_template =  self.get_proxy_template_design(proxy_obj)
+        id_template = algorithms.get_template_model(reference_obj)
+
+        if proxy_template != None:
+            if id_template != None:
+                if proxy_template in id_template:
                     return "OK"
                 else:
                     return "WARNING"
+
         return "NO_SPECIFIED"
 
 
 
-    def get_character_from_selected(self):
-        objs_selected = bpy.context.selected_objects
-        for obj in objs_selected:
-            if algorithms.get_template_model(obj) != None:
-                return obj
-        return None
-
-
     def get_proxy_fitting_ingredients(self):
-        objs_selected = bpy.context.selected_objects
+        scn = bpy.context.scene
+        status = 'OK'
 
-        if len(objs_selected) != 2:
-            return ["WRONG_SELECTION", None,None]
-        reference_obj = self.get_character_from_selected()
+        if scn.mblab_proxy_name != "NO_PROXY_FOUND":
 
-        if not reference_obj:
-            return ["NO_REFERENCE", None, None]
-        for obj in objs_selected:
-            if obj != reference_obj:
-                proxy_obj = obj
-                if proxy_obj.type != 'MESH':
-                    return ["NO_MESH_SELECTED", None, None]
-                return ["OK", proxy_obj, reference_obj]
+            if scn.mblab_fitref_name == scn.mblab_proxy_name:
+                return ["SAME_OBJECTS", None, None]
+            character_obj = algorithms.get_object_by_name(scn.mblab_fitref_name)
+            proxy_obj = algorithms.get_object_by_name(scn.mblab_proxy_name)
+            if character_obj == None:
+                return ["CHARACTER_NOT_FOUND", None, None]
+            if proxy_obj == None:
+                return ["PROXY_NOT_FOUND", None, None]
+            if not algorithms.is_a_lab_character(character_obj):
+                return ["NO_REFERENCE", None, None]
+            return ["OK", proxy_obj, character_obj]
 
-    def validate_proxy_fitting(self):
-        status, proxy_obj, reference_obj = self.get_proxy_fitting_ingredients()
-        return status, proxy_obj, reference_obj
+        return ["PROXY_NOT_FOUND", None, None]
+
 
 
     def reset_proxy_shapekey(self,proxy):
@@ -152,8 +228,69 @@ class ProxyEngine:
             algorithms.remove_shapekey(proxy, "mbastlab_proxyfit")
 
 
-    def fit_near_vertices(self, basis_proxy,basis_body,proxy_shapekey,current_body, proxy_threshold = 0.025):
+    def fit_distant_vertices(self, basis_proxy,basis_body,proxy_shapekey,current_body):
 
+
+        #basis_proxy = proxy in basis shape, without shapekey applied
+        #proxy_shapekey = shapekey to modify as final result
+        #basis_body = body in basis shape, without morphings and armature
+        #current_body = current body shape, with morphing (but not armature) applied
+
+        polygons_file = algorithms.get_template_polygons(current_body)
+        polygons_path = os.path.join(self.data_path,"pgroups",polygons_file)
+        valid_polygons_indxs = algorithms.load_json_data(polygons_path, "Subset of polygons for proxy fitting")
+
+        basis_proxy_vertices = basis_proxy.data.vertices #In Blender obj.data = basis data
+        basis_body_polygons = basis_body.data.polygons
+        current_body_polygons = current_body.data.polygons
+
+        involved_body_polygons_idx = []
+        involved_basis_body_polygons_coords = []
+        involved_current_body_polygons_coords = []
+
+        if len(basis_body_polygons) == len(current_body_polygons):
+            basis_body_tree = algorithms.kdtree_from_obj_polygons(basis_body, valid_polygons_indxs)
+
+            for i,basis_proxy_vert in enumerate(basis_proxy_vertices):
+
+                nearest_body_polygons_data = basis_body_tree.find(basis_proxy_vert.co)
+                body_polygon_index = nearest_body_polygons_data[1]
+                involved_body_polygons_idx.append(body_polygon_index)
+
+
+            for i in involved_body_polygons_idx:
+                basis_body_polygon = basis_body_polygons[i]
+                current_body_polygon = current_body_polygons[i]
+
+                #current_body_polygon.select = True
+
+                involved_basis_body_polygons_coords.append(basis_body_polygon.center)
+                involved_current_body_polygons_coords.append(current_body_polygon.center)
+
+            basis_body_bbox = algorithms.get_bounding_box(involved_basis_body_polygons_coords)
+            current_body_bbox = algorithms.get_bounding_box(involved_current_body_polygons_coords)
+
+            basis_body_center = algorithms.average_center(involved_basis_body_polygons_coords)
+            current_body_center = algorithms.average_center(involved_current_body_polygons_coords)
+
+            scaleX = current_body_bbox[0]/basis_body_bbox[0]
+            scaleY = current_body_bbox[1]/basis_body_bbox[1]
+            scaleZ = current_body_bbox[2]/basis_body_bbox[2]
+
+            scale_bbox = mathutils.Vector((scaleX,scaleY,scaleZ))
+
+            for i,basis_proxy_vert in enumerate(basis_proxy_vertices):
+                proxy_shapekey_vert = proxy_shapekey.data[i]
+                basis_radial_vector = basis_proxy_vert.co-basis_body_center
+                scaled_radial_vector = mathutils.Vector((basis_radial_vector[0]*scale_bbox[0],
+                                                        basis_radial_vector[1]*scale_bbox[1],
+                                                        basis_radial_vector[2]*scale_bbox[2]))
+
+                proxy_shapekey_vert.co = current_body_center + scaled_radial_vector
+
+
+
+    def fit_near_vertices(self, basis_proxy,basis_body,proxy_shapekey,current_body, proxy_threshold = 0.025):
 
         #basis_proxy = proxy in basis shape, without shapekey applied
         #proxy_shapekey = shapekey to modify as final result
@@ -189,7 +326,6 @@ class ProxyEngine:
                 else:
                     f_factor = 0
 
-
                 basis_body_verts_coords = algorithms.get_polygon_vertices_coords(basis_body,body_polygon_index)
                 p1 = basis_body_verts_coords[0]
                 p2 = basis_body_verts_coords[1]
@@ -208,20 +344,20 @@ class ProxyEngine:
 
 
 
-    def fit_proxy_object(self,proxy_offset=0.0, proxy_threshold = 0.5, create_proxy_mask = False, transfer_w = True, overwrite_w = True):
+    def fit_proxy_object(self,proxy_offset=0.0, proxy_threshold = 0.5, create_proxy_mask = False, transfer_w = True):
         scn = bpy.context.scene
         status, proxy, body = self.get_proxy_fitting_ingredients()
         if status == "OK":
-
+            armat = algorithms.get_linked_armature(body)
             self.calibrate_proxy_object(proxy)
             self.reset_proxy_shapekey(proxy)#Always after calibration!
 
             proxy.matrix_world = body.matrix_world
 
             template_name = algorithms.get_template_model(body)
+            mask_name = "mbastlab_mask_" + proxy.name
 
-
-            lab_logger.info("Fitting proxy {0}".format(proxy.name))
+            algorithms.print_log_report("INFO","Fitting proxy {0}".format(proxy.name))
             selected_objs_names = algorithms.get_objects_selected_names()
 
             body_modfs_status = algorithms.get_object_modifiers_visibility(body)
@@ -234,37 +370,49 @@ class ProxyEngine:
             basis_body = algorithms.import_object_from_lib(self.templates_library, template_name, stop_import = False)
 
             proxy_shapekey = algorithms.new_shapekey(proxy,"mbastlab_proxyfit")
-            
+
+
+            self.fit_distant_vertices(proxy,basis_body,proxy_shapekey,body)
 
             self.fit_near_vertices(proxy,basis_body,proxy_shapekey,body,proxy_threshold)
             self.proxy_offset(proxy,basis_body,proxy_shapekey,body,proxy_offset)
             self.calculate_finishing_morph(proxy, "mbastlab_proxyfit")
 
             if create_proxy_mask:
-                self.calculate_mask_vertgroup(body, proxy_shapekey)
+                self.add_body_mask(body, proxy_shapekey, mask_name)
             else:
-                self.remove_proxy_mask(body)
+                self.remove_body_mask(body, mask_name)
 
             #algorithms.remove_mesh(basis_body_mesh, True)
             algorithms.remove_object(basis_body, True, True)
-            armat = algorithms.get_linked_armature(body)
 
-            self.add_proxy_armature_modfr(proxy, armat)
+            armature_mod = self.add_proxy_armature_modfr(proxy, armat)
 
             if transfer_w == True:
-                if overwrite_w == True:
-                    self.transfer_weights(body, proxy)
-                else:
-                    if not algorithms.is_rigged(proxy, armat):
-                        self.transfer_weights(body, proxy)
+                algorithms.remove_vertgroups_all(proxy)
+                self.transfer_weights(body, proxy)
 
             algorithms.set_object_modifiers_visibility(proxy, proxy_modfs_status)
             algorithms.set_object_modifiers_visibility(body, body_modfs_status)
             self.disable_extra_armature_modfr(proxy)
 
+            parameters = {"show_viewport":True}
+
+            correct_smooth_mod = algorithms.new_modifier(proxy, self.corrective_modifier_name, 'CORRECTIVE_SMOOTH', parameters)
+
+
+            for i in range(10):
+                algorithms.move_up_modifier(proxy, correct_smooth_mod)
+
+            for i in range(10):
+                algorithms.move_up_modifier(proxy, armature_mod)
+
 
             for obj_name in selected_objs_names:
                 algorithms.select_object_by_name(obj_name)
+
+
+
 
 
     def proxy_offset(self, basis_proxy,basis_body,proxy_shapekey,current_body,offset_factor):
@@ -277,7 +425,7 @@ class ProxyEngine:
         basis_proxy_vertices = basis_proxy.data.vertices
         basis_body_polygons = basis_body.data.polygons
         current_body_polygons = current_body.data.polygons
-        
+
         polygons_file = algorithms.get_template_polygons(current_body)
         polygons_path = os.path.join(self.data_path,"pgroups",polygons_file)
         valid_polygons_indxs = algorithms.load_json_data(polygons_path, "Subset of polygons for proxy fitting")
@@ -310,22 +458,23 @@ class ProxyEngine:
                 proxy_shapekey_vert.co = proxy_shapekey_vert.co + offset_vector*offset_factor
 
 
-    def calculate_mask_vertgroup(self, body, proxy_shapekey,proxy_threshold = 0.025):
+    def add_body_mask(self, body, proxy_shapekey, mask_name, proxy_threshold = 0.025):
 
         #basis_proxy_mesh = proxy in basis shape, without shapekey applied
         #proxy_shapekey = shapekey of actual, "real" proxy shape as it is after the fitting
-        #basis_body_mesh = body in basis shape, without morphings and armature        
-        #body = actual body to modify as final result            
-        
+        #basis_body_mesh = body in basis shape, without morphings and armature
+        #body = actual body to modify as final result
+
         polygons_file = algorithms.get_template_polygons(body)
         polygons_path = os.path.join(self.data_path,"pgroups",polygons_file)
         valid_polygons_indxs = algorithms.load_json_data(polygons_path, "Subset of polygons for proxy fitting")
-        body_tree = algorithms.kdtree_from_obj_polygons(body, valid_polygons_indxs)        
+        body_tree = algorithms.kdtree_from_obj_polygons(body, valid_polygons_indxs)
 
-        algorithms.remove_vertgroup(body, "mbastlab_mask")
+
+        algorithms.remove_vertgroup(body, mask_name)
 
         masked_verts_idx = set()
-        mask_group = algorithms.new_vertgroup(body, "mbastlab_mask")
+        mask_group = algorithms.new_vertgroup(body, mask_name)
 
         for actual_vert in proxy_shapekey.data:
 
@@ -335,7 +484,9 @@ class ProxyEngine:
             body_polygon_idx = nearest_body_polygon_data[1]
             body_polygon = body.data.polygons[body_polygon_idx]
 
-            if dist_proxy_body < proxy_threshold:                
+            #body_polygon.select = True
+
+            if dist_proxy_body < proxy_threshold:
                 for v_idx in body_polygon.vertices:
                     masked_verts_idx.add(v_idx)
 
@@ -345,10 +496,14 @@ class ProxyEngine:
             if i in masked_verts_idx:
                 mask_group.add([vert.index], 1.0, 'REPLACE')
 
-        self.add_mask_modifier(body, "mbastlab_mask")
+        #self.add_mask_modifier(body, mask_name)
+        parameters = {"vertex_group":mask_name,"invert_vertex_group":True}
+        algorithms.new_modifier(body, mask_name, 'MASK', parameters)
 
-    def remove_proxy_mask(self, body):
-        algorithms.remove_modifier(body, self.mask_modifier_name)
+    def remove_body_mask(self, body, mask_name):
+        algorithms.remove_modifier(body, mask_name)
+        algorithms.remove_vertgroup(body, mask_name)
+
 
     def calculate_finishing_morph(self, obj, shapekey_name = "Fitted", threshold=0.2):
 
@@ -380,6 +535,7 @@ class ProxyEngine:
                         average = average/len(b_verts)
                         corrected_position = shape_to_finish.data[idx].co*(1.0 - max_deform) + average*max_deform
                         shape_to_finish.data[idx].co = corrected_position # + fitted_forma.vertices[idx].normal*difference.length
-                        obj.data.vertices[idx].select = True
+                        #obj.data.vertices[idx].select = True
+
 
 

@@ -16,8 +16,6 @@
 import bpy, os, json, time
 import mathutils
 from . import algorithms
-import logging
-lab_logger = logging.getLogger('manuelbastionilab_logger')
 
 class RetargetEngine:
 
@@ -50,7 +48,7 @@ class RetargetEngine:
             self.rot_type =  ""
             self.has_data = True
         else:
-            lab_logger.critical("Retarget database not found. Please check your Blender addons directory.")
+            algorithms.print_log_report("CRITICAL","Retarget database not found. Please check your Blender addons directory.")
             return None
 
 
@@ -206,7 +204,7 @@ class RetargetEngine:
         armature_z_axis = {}
         if target_armature:
             if source_armature:
-                lab_logger.info("Aligning Z axis of {0} with Z axis of {1}".format(target_armature.name,source_armature.name))
+                algorithms.print_log_report("INFO","Aligning Z axis of {0} with Z axis of {1}".format(target_armature.name,source_armature.name))
                 algorithms.select_and_change_mode(source_armature,'EDIT')
 
                 for x_bone in target_armature.data.bones:
@@ -215,7 +213,7 @@ class RetargetEngine:
                     if source_bone_name != None:
                         armature_z_axis[b_name] = source_armature.data.edit_bones[source_bone_name].z_axis.copy()
                     else:
-                        lab_logger.debug("Bone {0} non mapped".format(b_name))
+                        algorithms.print_log_report("DEBUG","Bone {0} non mapped".format(b_name))
                 algorithms.select_and_change_mode(source_armature,'POSE')
 
             algorithms.select_and_change_mode(target_armature,'EDIT')
@@ -336,7 +334,7 @@ class RetargetEngine:
                 try:
                     return bones_chain[index]
                 except:
-                    lab_logger.warning("The chain {0} of mocap file has less bones than the chain in the lab".format(bones_chain))
+                    algorithms.print_log_report("WARNING","The chain {0} of mocap file has less bones than the chain in the lab".format(bones_chain))
 
         return None
 
@@ -505,7 +503,7 @@ class RetargetEngine:
                     v1 = e_bone.vector.normalized()
                     v2 = e_bone.parent.vector.normalized()
                     if v1.dot(v2) < 0.5:
-                        lab_logger.info("Retarget: Bone {0} removed BY DOT".format(bone_name))
+                        algorithms.print_log_report("INFO","Retarget: Bone {0} removed BY DOT".format(bone_name))
                         chain.remove(bone_name)
         algorithms.select_and_change_mode(armature,'POSE')#TODO: store the status and restore it
         return chain
@@ -519,7 +517,7 @@ class RetargetEngine:
                 e_bone = edit_bones[bone_name]
                 if e_bone.parent:
                     if e_bone.length < e_bone.parent.length/8: 
-                        lab_logger.info("Retarget: Bone {0} removed BY LENGTH".format(bone_name))
+                        algorithms.print_log_report("INFO","Retarget: Bone {0} removed BY LENGTH".format(bone_name))
                         chain.remove(bone_name)
         algorithms.select_and_change_mode(armature,'POSE')#TODO: store the status and restore it
         return chain
@@ -828,44 +826,44 @@ class RetargetEngine:
                         result = self.get_bone_by_exact_ID(bones_chain, main_IDs, side)
 
                         if result:
-                            lab_logger.info("Retarget: Bone {0} found BY EXACT NAME".format(bone_type))
+                            algorithms.print_log_report("INFO","Retarget: Bone {0} found BY EXACT NAME".format(bone_type))
                             if result not in self.already_mapped_bones:
                                 self.already_mapped_bones.append(result)
-                                lab_logger.info("Retarget: {0} added to mapped bones".format(result))
+                                algorithms.print_log_report("INFO","Retarget: {0} added to mapped bones".format(result))
                                 return result
 
                     if s_method == "by_similar_name":
                         result = self.get_bone_by_similar_ID(bones_chain, main_IDs, side)
 
                         if result:
-                            lab_logger.info("Retarget: Bone {0} found BY SIMILAR NAME".format(bone_type))
+                            algorithms.print_log_report("INFO","Retarget: Bone {0} found BY SIMILAR NAME".format(bone_type))
                             if result not in self.already_mapped_bones:
                                 self.already_mapped_bones.append(result)
-                                lab_logger.info("Retarget: {0} added to mapped bones".format(result))
+                                algorithms.print_log_report("INFO","Retarget: {0} added to mapped bones".format(result))
                                 return result
 
                     if s_method == "by_children":
                         result = self.get_bone_by_childr(armat, bones_chain, children_IDs)
 
                         if result:
-                            lab_logger.info("Retarget: Bone {0} found BY CHILDREN".format(bone_type))
+                            algorithms.print_log_report("INFO","Retarget: Bone {0} found BY CHILDREN".format(bone_type))
                             if result not in self.already_mapped_bones:
                                 self.already_mapped_bones.append(result)
-                                lab_logger.info("Retarget: {0} added to mapped bones".format(result))
+                                algorithms.print_log_report("INFO","Retarget: {0} added to mapped bones".format(result))
                                 return result
 
                     if s_method == "by_chain_index":
                         result = self.get_bones_by_index(bones_chain,position_in_chain)
 
                         if result:
-                            lab_logger.info("Retarget: Bone {0} found BY CHAIN INDEX".format(bone_type))
+                            algorithms.print_log_report("INFO","Retarget: Bone {0} found BY CHAIN INDEX".format(bone_type))
                             if result not in self.already_mapped_bones:
                                 self.already_mapped_bones.append(result)
-                                lab_logger.info("Retarget: {0} added to mapped bones".format(result))
+                                algorithms.print_log_report("INFO","Retarget: {0} added to mapped bones".format(result))
                                 return result
 
-                lab_logger.warning("All retarget methods failed for {0}.".format(bone_type))
-                #lab_logger.warning("No candidates found in: {0}, or the candidate found is already mapped to another bone".format(bones_chain))
+                algorithms.print_log_report("WARNING","All retarget methods failed for {0}.".format(bone_type))
+                #algorithms.print_log_report("WARNING","No candidates found in: {0}, or the candidate found is already mapped to another bone".format(bones_chain))
                 return None
         else:
             return None
@@ -898,10 +896,10 @@ class RetargetEngine:
                 if ebone:
                     return ebone
                 else:
-                    lab_logger.warning("{0} not found in edit mode of target armature {1}".format(b_name,armat))
+                    algorithms.print_log_report("WARNING","{0} not found in edit mode of target armature {1}".format(b_name,armat))
                     return None
         else:
-            lab_logger.warning("Warning: Can't get the edit bone of {0} because the mode is {1}".format(bpy.context.scene.objects.active,bpy.context.object.mode))
+            algorithms.print_log_report("WARNING","Warning: Can't get the edit bone of {0} because the mode is {1}".format(bpy.context.scene.objects.active,bpy.context.object.mode))
         return None
 
     def get_source_editbone(self,armat,b_name):
@@ -912,10 +910,10 @@ class RetargetEngine:
                 if ebone:
                     return ebone
                 else:
-                    lab_logger.warning("{0} not found in edit mode of source armature {1}".format(b_name,armat))
+                    algorithms.print_log_report("WARNING","{0} not found in edit mode of source armature {1}".format(b_name,armat))
                     return None
         else:
-            lab_logger.warning("Warning: Can't get the edit bone of {0} because the mode is {1}".format(bpy.context.scene.objects.active,bpy.context.object.mode))
+            algorithms.print_log_report("WARNING","Warning: Can't get the edit bone of {0} because the mode is {1}".format(bpy.context.scene.objects.active,bpy.context.object.mode))
         return None
 
 
@@ -940,7 +938,7 @@ class RetargetEngine:
                     self.skeleton_mapped[map_name] = parent_bone_name
                     self.already_mapped_bones.append(parent_bone_name)
                 return True
-        lab_logger.warning("Error in mapping {1} as direct parent of {0}".format(childr_name,map_name))
+        algorithms.print_log_report("WARNING","Error in mapping {1} as direct parent of {0}".format(childr_name,map_name))
         return False
 
     def map_main_bones(self,armat):
@@ -1150,9 +1148,9 @@ class RetargetEngine:
                 self.rotate_skeleton(source_armat,rot)
                 algorithms.apply_object_transformation(source_armat)
             else:
-                lab_logger.warning("Cannot calculate the target vector for armature alignment")
+                algorithms.print_log_report("WARNING","Cannot calculate the target vector for armature alignment")
         else:
-            lab_logger.warning("Cannot calculate the source vector for armature alignment")
+            algorithms.print_log_report("WARNING","Cannot calculate the source vector for armature alignment")
 
 
 
@@ -1238,14 +1236,14 @@ class RetargetEngine:
             elif l_upperarm_bone and r_upperarm_bone:
                 upper_point = (l_upperarm_bone.tail + r_upperarm_bone.tail)*0.5
             else:
-                lab_logger.warning("Cannot calculate armature height: clavicles not found")
+                algorithms.print_log_report("WARNING","Cannot calculate armature height: clavicles not found")
 
             if l_foot_bone and r_foot_bone:
                 lower_point = (l_foot_bone.head + r_foot_bone.head)*0.5
             elif l_calf_bone and r_calf_bone:
                 lower_point = (l_calf_bone.head + r_calf_bone.head)*0.5
             else:
-                lab_logger.warning("Cannot calculate armature height: feet not found")
+                algorithms.print_log_report("WARNING","Cannot calculate armature height: feet not found")
 
             if upper_point and lower_point:
                 height = upper_point-lower_point
@@ -1255,7 +1253,7 @@ class RetargetEngine:
                 return 0
 
         else:
-            lab_logger.warning("Cannot found the source armature for height calculation")
+            algorithms.print_log_report("WARNING","Cannot found the source armature for height calculation")
 
     def remove_armature_constraints(self,target_armature):
         for b in target_armature.pose.bones:
@@ -1398,7 +1396,7 @@ class RetargetEngine:
                 else:
                     self.retarget(target_armature,source_armature, False)
                 algorithms.play_animation()
-        lab_logger.info("Animation loaded in {0} sec.".format(time.time()-time1))
+        algorithms.print_log_report("INFO","Animation loaded in {0} sec.".format(time.time()-time1))
 
 
 
@@ -1412,13 +1410,13 @@ class RetargetEngine:
                 update_scene_duration = True
                 )
         except:
-            lab_logger.warning("Standard bvh operator not found: can't import animation.")
+            algorithms.print_log_report("WARNING","Standard bvh operator not found: can't import animation.")
 
 
 
     def retarget(self, target_armature, source_armature, bake_animation = True):
 
-        lab_logger.info("retarget with {0}".format(source_armature.name))
+        algorithms.print_log_report("INFO","retarget with {0}".format(source_armature.name))
         if source_armature and target_armature:
             self.init_skeleton_map(source_armature)
             self.clear_animation(target_armature)
@@ -1482,14 +1480,14 @@ class ExpressionEngineShapeK:
             expressions_ID = algorithms.simple_path(filepath)
             if "manuellab_vers" in charac_data:
                 if not algorithms.check_version(charac_data["manuellab_vers"]):
-                    lab_logger.info("{0} created with vers. {1}.".format(expressions_ID,charac_data["manuellab_vers"]))
+                    algorithms.print_log_report("INFO","{0} created with vers. {1}.".format(expressions_ID,charac_data["manuellab_vers"]))
             else:
-                lab_logger.info("No lab version specified in {0}".format(expressions_ID))
+                algorithms.print_log_report("INFO","No lab version specified in {0}".format(expressions_ID))
 
             if "structural" in charac_data:
                 char_data = charac_data["structural"]
             else:
-                lab_logger.warning("No structural data in  {0}".format(expressions_ID))
+                algorithms.print_log_report("WARNING","No structural data in  {0}".format(expressions_ID))
                 char_data = None
 
             return char_data
@@ -1577,7 +1575,7 @@ class ExpressionEngineShapeK:
                                 current_val = obj.data.shape_keys.key_blocks[name].value
                                 obj.data.shape_keys.key_blocks[name].value = min(current_val+sk_value,1.0)
                             else:
-                                lab_logger.warning("Expression {0}: shapekey {1} not found".format(expression_name,name))
+                                algorithms.print_log_report("WARNING","Expression {0}: shapekey {1} not found".format(expression_name,name))
 
 
 
