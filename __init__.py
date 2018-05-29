@@ -31,7 +31,7 @@ import json
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 from bpy.app.handlers import persistent
 from . import humanoid, animationengine, proxyengine
-import time 
+import time
 
 #new imports - EasyBastioniLAB
 import bpy.utils.previews
@@ -292,7 +292,7 @@ def femalepose_update(self, context):
     filepath = os.path.join(
         mblab_retarget.femaleposes_path,
         "".join([armature.female_pose, ".json"]))
-    mblab_retarget.load_pose(filepath, use_retarget = True)  
+    mblab_retarget.load_pose(filepath, use_retarget = True)
 
 
 def init_morphing_props(humanoid_instance):
@@ -366,7 +366,7 @@ def wellvr_restpose_update():
 
 def init_maleposes_props():
     global mblab_retarget
-    if mblab_retarget.maleposes_exist:        
+    if mblab_retarget.maleposes_exist:
         if not hasattr(bpy.types.Object, 'male_pose'):
             malepose_items = algorithms.generate_items_list(mblab_retarget.maleposes_path)
             bpy.types.Object.male_pose = bpy.props.EnumProperty(
@@ -377,7 +377,7 @@ def init_maleposes_props():
 
 def init_femaleposes_props():
     global mblab_retarget
-    if mblab_retarget.femaleposes_exist:        
+    if mblab_retarget.femaleposes_exist:
         if not hasattr(bpy.types.Object, 'female_pose'):
             femalepose_items = algorithms.generate_items_list(mblab_retarget.femaleposes_path)
             bpy.types.Object.female_pose = bpy.props.EnumProperty(
@@ -388,7 +388,7 @@ def init_femaleposes_props():
 
 def init_expression_props():
     for expression_name in mblab_shapekeys.expressions_labels:
-        if not hasattr(bpy.types.Object, expression_name): 
+        if not hasattr(bpy.types.Object, expression_name):
             setattr(
                 bpy.types.Object,
                 expression_name,
@@ -472,7 +472,7 @@ def angle_update_2(self, context):
     scn = bpy.context.scene
     value = scn.mblab_rot_offset_2
     mblab_retarget.correct_bone_angle(2,value)
-    
+
 def get_character_items(self, context):
     items = []
     for obj in bpy.data.objects:
@@ -490,20 +490,20 @@ def get_proxy_items(self, context):
     if len(items) == 0:
         items = [("NO_PROXY_FOUND","No proxy found","No proxy found")]
     return items
-    
+
 
 def get_proxy_items_from_library(self, context):
     items = mblab_proxy.assets_models
     return items
-        
-def update_proxy_library(self, context):    
+
+def update_proxy_library(self, context):
     mblab_proxy.update_assets_models()
-    
+
 def load_proxy_item(self, context):
     scn = bpy.context.scene
-    mblab_proxy.load_asset(scn.mblab_assets_models) 
-    
-    
+    mblab_proxy.load_asset(scn.mblab_assets_models)
+
+
 #init_expression_props()
 
 bpy.types.Scene.mblab_proxy_library = bpy.props.StringProperty(
@@ -511,13 +511,13 @@ bpy.types.Scene.mblab_proxy_library = bpy.props.StringProperty(
             description = "Folder with assets blend files",
             default = "",
             maxlen = 1024,
-            update = update_proxy_library,            
+            update = update_proxy_library,
             subtype = 'DIR_PATH')
 
 bpy.types.Scene.mblab_fitref_name = bpy.props.EnumProperty(
         items=get_character_items,
         name="Character")
-        
+
 bpy.types.Scene.mblab_proxy_name = bpy.props.EnumProperty(
         items=get_proxy_items,
         name="Proxy")
@@ -780,16 +780,16 @@ bpy.types.Scene.mblab_character_name = bpy.props.EnumProperty(
     default="f_ca01")
 
 bpy.types.Scene.mblab_assets_models = bpy.props.EnumProperty(
-    items=get_proxy_items_from_library, 
-    update=load_proxy_item,   
-    name="Assets model")   
- 
-    
+    items=get_proxy_items_from_library,
+    update=load_proxy_item,
+    name="Assets model")
+
+
 bpy.types.Scene.mblab_transfer_proxy_weights = bpy.props.BoolProperty(
     name="Transfer weights from body to proxy (replace existing)",
     description="If the proxy has already rigging weights, they will be replaced with the weights projected from the character body",
-    default = True)  
-    
+    default = True)
+
 bpy.types.Scene.mblab_save_images_and_backup = bpy.props.BoolProperty(
     name="Save images and backup character",
     description="Save all images from the skin shader and backup the character in json format",
@@ -1623,7 +1623,7 @@ class ButtonAssetsOn(bpy.types.Operator):
         global gui_active_panel_fin
         gui_active_panel_fin = 'assets'
         return {'FINISHED'}
-        
+
 class ButtoAssetsOff(bpy.types.Operator):
     bl_label = 'ASSETS LIBRARY'
     bl_idname = 'mbast.button_assets_off'
@@ -2160,7 +2160,7 @@ class ResetExpressions(bpy.types.Operator):
         global mblab_shapekeys
         mblab_shapekeys.reset_expressions_GUI()
         return {'FINISHED'}
-        
+
 # class LoadAssets(bpy.types.Operator):
     # """
     # Load assets from library
@@ -2173,9 +2173,9 @@ class ResetExpressions(bpy.types.Operator):
 
     # def execute(self, context):
         # scn = bpy.context.scene
-        # mblab_proxy.load_asset(scn.mblab_assets_models)  
+        # mblab_proxy.load_asset(scn.mblab_assets_models)
         # return {'FINISHED'}
-        
+
 
 class InsertExpressionKeyframe(bpy.types.Operator):
     """
@@ -2671,16 +2671,16 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             else:
                 self.layout.operator('mbast.button_assets_off', icon=icon_collapse)
                 #assets_status = mblab_proxy.validate_assets_fitting()
-                box = self.layout.box()  
-                
-                box.prop(scn,'mblab_proxy_library') 
-                box.prop(scn,'mblab_assets_models')  
-                #box.operator('mbast.load_assets_element') 
+                box = self.layout.box()
+
+                box.prop(scn,'mblab_proxy_library')
+                box.prop(scn,'mblab_assets_models')
+                #box.operator('mbast.load_assets_element')
                 box.label("To adapt the asset, use the proxy fitting tool", icon = 'INFO')
-                          
-                                    
-                
-                
+
+
+
+
             if gui_active_panel_fin != "pose":
                 self.layout.operator('mbast.button_pose_on', icon=icon_expand)
             else:
@@ -2733,33 +2733,33 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             else:
                 self.layout.operator('mbast.button_proxy_fit_off', icon=icon_collapse)
                 fitting_status, proxy_obj, reference_obj = mblab_proxy.get_proxy_fitting_ingredients()
-                
+
 
                 box = self.layout.box()
                 box.label("PROXY FITTING")
                 box.label("Please select character and proxy:")
                 box.prop(scn, 'mblab_fitref_name')
-                box.prop(scn, 'mblab_proxy_name')                
+                box.prop(scn, 'mblab_proxy_name')
                 if fitting_status == "NO_REFERENCE":
                     #box.enabled = False
                     box.label("Character not valid.", icon="ERROR")
                     box.label("Possible reasons:")
                     box.label("- Character created with a different lab version")
-                    box.label("- Character topology altered by custom modelling")                    
+                    box.label("- Character topology altered by custom modelling")
                     box.label("- Character topology altered by modifiers (decimator,subsurf, etc..)")
-                if fitting_status == "SAME_OBJECTS":                    
-                    box.label("Proxy and character cannot be the same object", icon="ERROR") 
-                if fitting_status == "CHARACTER_NOT_FOUND":                   
-                    box.label("Character not found", icon="ERROR") 
-                if fitting_status == "PROXY_NOT_FOUND":                   
-                    box.label("Proxy not found", icon="ERROR") 
-                if fitting_status == 'OK':                    
+                if fitting_status == "SAME_OBJECTS":
+                    box.label("Proxy and character cannot be the same object", icon="ERROR")
+                if fitting_status == "CHARACTER_NOT_FOUND":
+                    box.label("Character not found", icon="ERROR")
+                if fitting_status == "PROXY_NOT_FOUND":
+                    box.label("Proxy not found", icon="ERROR")
+                if fitting_status == 'OK':
                     box.label("The proxy is ready for fitting.", icon="INFO")
-                    proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)                    
-                    
+                    proxy_compatib = mblab_proxy.validate_assets_compatibility(proxy_obj, reference_obj)
+
                     if proxy_compatib == "WARNING":
-                        box.label("The proxy seems not designed for the selected character.", icon="ERROR")                    
-                    
+                        box.label("The proxy seems not designed for the selected character.", icon="ERROR")
+
                     box.prop(scn,'mblab_proxy_offset')
                     box.prop(scn,'mblab_proxy_threshold')
                     box.prop(scn, 'mblab_add_mask_group')
@@ -3005,9 +3005,9 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         row2 = self.layout.row()
                         row2.template_icon_view(scn, "eye_previews", show_labels=False, scale=10.0)
 
-                        sub = box.box()
-                        sub.label("Export all images used in skin shader")
-                        sub.operator("mbast.export_allimages", icon='EXPORT')
+                        # sub = box.box()
+                        # sub.label("Export all images used in skin shader")
+                        # sub.operator("mbast.export_allimages", icon='EXPORT')
 
                 if advanced_mode_is_on:
                     if gui_active_panel != "file":
