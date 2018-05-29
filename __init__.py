@@ -552,6 +552,52 @@ def skin_previews_update(self, context):
     mblab_humanoid.material_realtime_activated = True
     mblab_humanoid.update_materials()
 
+def generate_eye_previews():
+    pcoll = preview_collections["eye_previews"]
+    image_location = pcoll.images_location
+    VALID_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+
+    enum_items = []
+
+    # Generate the thumbnails
+    for i, image in enumerate(os.listdir(image_location)):
+        if image.endswith(VALID_EXTENSIONS):
+            filepath = os.path.join(image_location, image)
+            thumb = pcoll.load(filepath, filepath, 'IMAGE')
+            enum_items.append((image, image, "", thumb.icon_id, i))
+
+    return enum_items
+
+def eye_previews_update(self, context):
+    global mblab_humanoid
+    # place eye complexion and hue in the .png's name!
+    selected_eye_preview_name = bpy.context.scene.eye_previews
+    selected_eye_preview_name = selected_eye_preview_name[:(len(selected_eye_preview_name) - 4)]
+    split_eye_preview_name = selected_eye_preview_name.split('_')
+    for split_value in split_eye_preview_name:
+        if 'complexion' in split_value:
+            split_complexion = split_value.split('-')
+            complexion_value = float(split_complexion[1])
+            # complexion_value /= 1000
+            mblab_humanoid.character_material_properties['eye_complexion'] = complexion_value
+        if 'hue' in split_value:
+            split_hue = split_value.split('-')
+            hue_value = float(split_hue[1])
+            # hue_value /= 1000
+            mblab_humanoid.character_material_properties['eye_hue'] = hue_value
+
+    mblab_humanoid.material_realtime_activated = False
+    obj = mblab_humanoid.get_object()
+    for material_data_prop, value in mblab_humanoid.character_material_properties.items():
+        if 'eye_hue' in material_data_prop or 'eye_complexion' in material_data_prop:
+            if hasattr(obj, material_data_prop):
+                setattr(obj, material_data_prop, value)
+            else:
+                lab_logger.warning("material {0}  not found".format(material_data_prop))
+
+    mblab_humanoid.material_realtime_activated = True
+    mblab_humanoid.update_materials()
+
 def generate_morph_previews(morph_target):
     pcoll = preview_collections[morph_target]
     image_location = pcoll.images_location
@@ -1175,7 +1221,20 @@ class SwitchViewButton(bpy.types.Operator):
 class TakePicturesWithCamera(bpy.types.Operator):
     bl_idname = "wellvr.take_pictures_with_camera_button"
     bl_label = "Take Pictures with Camera"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This will take a few hours, are you sure?")
+
     def execute(self, context):
+        self.report({'INFO'}, "YES!")
         if(len(bpy.data.cameras) == 1):
             camObj = bpy.data.objects['Camera']
             # Create dicts
@@ -1205,7 +1264,10 @@ class TakePicturesWithCamera(bpy.types.Operator):
             camRotations['Mouth'] = (81.1, 0, 23)
             camLocations['Nose'] = (0.110908, -0.294595, 1.56963)
             camRotations['Nose'] = (83.6, 0, 33.1)
+
             image_count = 0
+            bpy.context.scene.render.resolution_x = 1024
+            bpy.context.scene.render.resolution_y = 1024
             for key, value in camLocations.items():
                 print(key, value, camRotations[key])
                 camObj.location = value
@@ -1251,7 +1313,20 @@ class TakePicturesWithCamera(bpy.types.Operator):
 class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
     bl_idname = "wellvr.take_skin_preview_pictures_with_camera_button"
     bl_label = "Take Skin Preview Pics"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This might take several seconds...")
+
     def execute(self, context):
+        self.report({'INFO'}, "YES!")
         if(len(bpy.data.cameras) == 1):
             camObj = bpy.data.objects['Camera']
             # Create dicts
@@ -1263,6 +1338,8 @@ class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
             skin_complexions = [0.1, 0.001, 0.650]
             skin_hues = [0.5, 0.51, 0.485]
             image_count = 1
+            bpy.context.scene.render.resolution_x = 1024
+            bpy.context.scene.render.resolution_y = 1024
             for key, value in camLocations.items():
                 print(key, value, camRotations[key])
                 camObj.location = value
@@ -1285,7 +1362,68 @@ class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
                         mblab_humanoid.update_materials()
 
                         skin_path = str(str(image_count)+"_skin_preview_complexion-"+str(complexion_value)+"_hue-"+str(hue_value)+".png")
-                        file = os.path.join(os.path.dirname(__file__), "images/generated_skin_previews", skin_path)
+                        file = os.path.join(os.path.dirname(__file__), "images/skin_previews", skin_path)
+                        print ("printing to " + file)
+                        bpy.context.scene.render.filepath = file
+                        bpy.ops.render.render( write_still=True )
+                        image_count += 1;
+
+        return {'FINISHED'}
+
+
+class TakeEyePreviewPicturesWithCamera(bpy.types.Operator):
+    bl_idname = "wellvr.take_eye_preview_pictures_with_camera_button"
+    bl_label = "Take Eye Preview Pics"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This might take several seconds...")
+
+    def execute(self, context):
+        self.report({'INFO'}, "YES!")
+        if(len(bpy.data.cameras) == 1):
+            camObj = bpy.data.objects['Camera']
+            # Create dicts
+            camLocations = {}
+            camRotations = {}
+            camLocations['Eyes'] = (0.047876, -0.309219, 1.5633)
+            camRotations['Eyes'] = (91.8, 0, 12.6)
+            # Eye dicts
+            eye_complexions = [0.1, 0.001, 0.650]
+            eye_hues = [0.5, 0.51, 0.485]
+            image_count = 1
+            bpy.context.scene.render.resolution_x = 1024
+            bpy.context.scene.render.resolution_y = 1024
+            for key, value in camLocations.items():
+                print(key, value, camRotations[key])
+                camObj.location = value
+                x,y,z = camRotations[key]
+                camObj.rotation_euler = (radians(x), radians(y), radians(z))
+                for complexion_value in eye_complexions:
+                    for hue_value in eye_hues:
+                        mblab_humanoid.character_material_properties['eye_complexion'] = complexion_value
+                        mblab_humanoid.character_material_properties['eye_hue'] = hue_value
+                        mblab_humanoid.material_realtime_activated = False
+                        obj = mblab_humanoid.get_object()
+                        for material_data_prop, value in mblab_humanoid.character_material_properties.items():
+                            if 'eye_hue' in material_data_prop or 'eye_complexion' in material_data_prop:
+                                if hasattr(obj, material_data_prop):
+                                    setattr(obj, material_data_prop, value)
+                                else:
+                                    lab_logger.warning("material {0}  not found".format(material_data_prop))
+
+                        mblab_humanoid.material_realtime_activated = True
+                        mblab_humanoid.update_materials()
+
+                        eye_path = str(str(image_count)+"_eye_preview_complexion-"+str(complexion_value)+"_hue-"+str(hue_value)+".png")
+                        file = os.path.join(os.path.dirname(__file__), "images/eye_previews", eye_path)
                         print ("printing to " + file)
                         bpy.context.scene.render.filepath = file
                         bpy.ops.render.render( write_still=True )
@@ -2837,6 +2975,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         self.layout.operator('mbast.button_skin_off', icon=icon_collapse)
                         row = self.layout.row()
                         row.template_icon_view(scn, "skin_previews", show_labels=False, scale=10.0)
+                        row2 = self.layout.row()
+                        row2.template_icon_view(scn, "eye_previews", show_labels=False, scale=10.0)
 
 
                 if advanced_mode_is_on:
@@ -2889,8 +3029,8 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         else:
                             box.operator("mbast.corrective_disable", icon='X')
 
-                # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Pictures")
-                self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take SKin Preview Pics")
+                # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
+                # self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take Skin Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
                 # self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
                 # self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
@@ -2926,13 +3066,22 @@ def register():
     custom_icons.load("custom_icon", os.path.join(icons_dir, "icon.png"), 'IMAGE')
     bpy.utils.register_module(__name__)
 
-    # Generate list for skins
+    # Generate list for skin previews
     pcoll_skins = bpy.utils.previews.new()
     pcoll_skins.images_location = os.path.join(os.path.dirname(__file__), "images/skin_previews")
     preview_collections["skin_previews"] = pcoll_skins
     bpy.types.Scene.skin_previews = EnumProperty(
         items=generate_skin_previews(),
         update=skin_previews_update
+    )
+
+    # Generate list for eye previews
+    pcoll_skins = bpy.utils.previews.new()
+    pcoll_skins.images_location = os.path.join(os.path.dirname(__file__), "images/eye_previews")
+    preview_collections["eye_previews"] = pcoll_skins
+    bpy.types.Scene.eye_previews = EnumProperty(
+        items=generate_eye_previews(),
+        update=eye_previews_update
     )
 
     ### Generate lists for morph targets previews ###
@@ -3756,8 +3905,9 @@ def unregister():
     for pcoll in preview_collections.values():
         bpy.utils.previews.remove(pcoll)
     preview_collections.clear()
-    bpy.types.Scene.delete_all_properties()
-    # del bpy.types.Scene.skin_previews
+
+    del bpy.types.Scene.skin_previews
+    del bpy.types.Scene.eye_previews
 
     bpy.utils.unregister_module(__name__)
 
