@@ -916,7 +916,19 @@ class ExportToUnrealButton(bpy.types.Operator):
     bl_idname = "wellvr.export_to_unreal"
     bl_label = "Export To Unreal"
 
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This will take several seconds")
+
     def execute(self, context):
+        self.report({'INFO'}, "Complete")
         global mblab_humanoid
         global gui_status
 
@@ -2073,6 +2085,8 @@ class WellVRFinalizeCharacterAndMetadata(bpy.types.Operator):
         layout = self.layout
         col = self.layout.column(align = True)
         col.prop(context.scene, "name_input_prop")
+        row = self.layout
+        row.label("This will take several seconds, are you sure?")
 
     def execute(self, context):
 
@@ -2584,7 +2598,19 @@ class StartSession(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'REGISTER', 'INTERNAL','UNDO'}
 
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This will take a few seconds...")
+
     def execute(self, context):
+        self.report({'INFO'}, "Done")
         start_lab_session()
         return {'FINISHED'}
 
