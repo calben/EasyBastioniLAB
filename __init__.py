@@ -41,6 +41,7 @@ from math import radians
 from subprocess import call
 import uuid
 import re
+import sys
 import subprocess
 from bpy.props import EnumProperty
 
@@ -1047,6 +1048,7 @@ class ExportToUnrealButton(bpy.types.Operator):
             "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseBastioniCharacter/BaseBastioniCharacter_Skeleton.BaseBastioniCharacter_Skeleton'",
             "-o", "S:/WellVrRoot/CharacterPackages/",
             "-b"], shell=True)
+        sys.exit(0)
         return {'FINISHED'}
 
 class ExportCharacterPresetsButton(bpy.types.Operator):
