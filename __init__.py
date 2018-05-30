@@ -917,7 +917,19 @@ class ExportToUnrealButton(bpy.types.Operator):
     bl_idname = "wellvr.export_to_unreal"
     bl_label = "Export To Unreal"
 
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This will take several seconds")
+
     def execute(self, context):
+        self.report({'INFO'}, "Complete")
         global mblab_humanoid
         global gui_status
 
@@ -2075,6 +2087,8 @@ class WellVRFinalizeCharacterAndMetadata(bpy.types.Operator):
         layout = self.layout
         col = self.layout.column(align = True)
         col.prop(context.scene, "name_input_prop")
+        row = self.layout
+        row.label("This will take several seconds...")
 
     def execute(self, context):
 
@@ -2586,7 +2600,19 @@ class StartSession(bpy.types.Operator):
     bl_context = 'objectmode'
     bl_options = {'REGISTER', 'INTERNAL','UNDO'}
 
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout
+        row.label("This will take a few seconds...")
+
     def execute(self, context):
+        self.report({'INFO'}, "Done")
         start_lab_session()
         return {'FINISHED'}
 
@@ -3055,7 +3081,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
                 # self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take Skin Preview Pics")
-                self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
+                # self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
                 # self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
                 # self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
