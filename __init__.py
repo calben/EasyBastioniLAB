@@ -2666,15 +2666,15 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
             self.layout.label("CREATION TOOLS")
             self.layout.prop(scn, 'mblab_character_name')
 
-            # if advanced_mode_is_on:
-            if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
-                self.layout.prop(scn,'mblab_use_ik')
-            if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
-                self.layout.prop(scn,'mblab_use_muscle')
+            if advanced_mode_is_on:
+                if mblab_humanoid.is_ik_rig_available(scn.mblab_character_name):
+                    self.layout.prop(scn,'mblab_use_ik')
+                if mblab_humanoid.is_muscle_rig_available(scn.mblab_character_name):
+                    self.layout.prop(scn,'mblab_use_muscle')
 
-            self.layout.prop(scn,'mblab_use_cycles')
-            if scn.mblab_use_cycles:
-                self.layout.prop(scn,'mblab_use_lamps')
+                self.layout.prop(scn,'mblab_use_cycles')
+                if scn.mblab_use_cycles:
+                    self.layout.prop(scn,'mblab_use_lamps')
 
             self.layout.operator('mbast.init_character')
             # uncomment this to export characters -- EasyBastioniLAB -- wellvr
@@ -3079,7 +3079,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         else:
                             box.operator("mbast.corrective_disable", icon='X')
 
-                self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
+                # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
                 # self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take Skin Preview Pics")
                 # self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
