@@ -1028,13 +1028,13 @@ class ExportToUnrealButton(bpy.types.Operator):
             export_name = object.name
             if ("MBlab_bd" in object.name):
                 export_name = filename
-            fn = os.path.join(basedir, export_name)
-            print("exporting",object.name)
-            print({o.name : o.select for o in bpy.data.objects})
-            bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
-            # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
+                fn = os.path.join(basedir, export_name)
+                print("exporting",object.name)
+                print({o.name : o.select for o in bpy.data.objects})
+                bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
+                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
 
-        print("written:", fn)
+                print("written:", fn)
 
         # Set scene back to normal
         bpy.ops.object.select_all(action='SELECT')
@@ -1296,7 +1296,7 @@ class TakePicturesWithCamera(bpy.types.Operator):
                         mblab_humanoid.character_data[prop] = prop_value
                         mblab_humanoid.update_character(category_name = key, mode="update_all")
                         prop_path = str(prop+"_"+str(prop_value))
-                        file = os.path.join(os.path.dirname(__file__), "blenderpics", str(prop), prop_path)
+                        file = os.path.join(os.path.dirname(__file__), "images/morph_previews", str(prop), prop_path)
                         print ("printing to " + file)
                         bpy.context.scene.render.filepath = file
                         bpy.ops.render.render( write_still=True )
@@ -3077,7 +3077,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                         else:
                             box.operator("mbast.corrective_disable", icon='X')
 
-                # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
+                self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
                 # self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take Skin Preview Pics")
                 # self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
