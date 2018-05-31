@@ -207,7 +207,7 @@ def realtime_update(self, context):
     if mblab_humanoid.bodydata_realtime_activated:
         #time1 = time.time()
         scn = bpy.context.scene
-        mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_realtime")
+        mblab_humanoid.update_character(category_name = scn.shortMorphingCategory, mode="update_realtime")
         mblab_humanoid.sync_gui_according_measures()
         #print("realtime_update: {0}".format(time.time()-time1))
 
@@ -334,14 +334,14 @@ def init_categories_props(humanoid_instance):
         name="Morphing categories")
 
 
-    # categories_shortlist_enum = []
-    # for category in mblab_humanoid.get_categories_shortlist():
-    #     categories_shortlist_enum.append((category.name, category.name, category.name))
-    #
-    # bpy.types.Scene.shortMorphingCategory = bpy.props.EnumProperty(
-    #     items=categories_shortlist_enum,
-    #     update = dud_modifiers_update,
-    #     name="Shortlist morphing categories")
+    categories_shortlist_enum = []
+    for category in mblab_humanoid.get_categories_shortlist():
+        categories_shortlist_enum.append((category.name, category.name, category.name))
+
+    bpy.types.Scene.shortMorphingCategory = bpy.props.EnumProperty(
+        items=categories_shortlist_enum,
+        update = modifiers_update,
+        name="Shortlist morphing categories")
 
 def init_restposes_props(humanoid_instance):
     if humanoid_instance.exists_rest_poses_database():
@@ -645,7 +645,7 @@ def morph_previews_update(self, context, morph_target):
         mblab_humanoid.character_data[prop] = 0
     scn = bpy.context.scene
     # maybe not use update_all here? Try update_only_morphdata, or update_directly_verts
-    mblab_humanoid.update_character(category_name = scn.morphingCategory, mode="update_all")
+    mblab_humanoid.update_character(category_name = scn.shortMorphingCategory, mode="update_all")
     # print("Got", mblab_humanoid.character_data[prop])
 
 def morph_previews_update_closure(morph_target):
@@ -1024,6 +1024,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         for object in bpy.data.objects:
             bpy.ops.object.select_all(action='DESELECT')
             object.select = True
+            print(object.name)
             if (object.find_armature() != None):
                 object.find_armature().select = True
             export_name = object.name
@@ -1034,7 +1035,12 @@ class ExportToUnrealButton(bpy.types.Operator):
                 print({o.name : o.select for o in bpy.data.objects})
                 bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
                 # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
-
+            elif ("Armature" in object.name):
+                fn = os.path.join(basedir, export_name)
+                print("exporting",object.name)
+                print({o.name : o.select for o in bpy.data.objects})
+                bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
+                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
                 print("written:", fn)
 
         # Set scene back to normal
@@ -2214,7 +2220,7 @@ class Reset_category(bpy.types.Operator):
     def execute(self, context):
         global mblab_humanoid
         scn = bpy.context.scene
-        mblab_humanoid.reset_category(scn.morphingCategory)
+        mblab_humanoid.reset_category(scn.shortMorphingCategory)
         return {'FINISHED'}
 
 
@@ -2899,11 +2905,11 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
                     col = split.column()
                     col2 = split.column()
                     col.label("PARAMETERS")
-                    col2.prop(scn, "morphingCategory")
+                    col2.prop(scn, "shortMorphingCategory")
 
 
 
-                    for prop in mblab_humanoid.get_shortlist_properties_in_category(scn.morphingCategory):
+                    for prop in mblab_humanoid.get_shortlist_properties_in_category(scn.shortMorphingCategory):
                         if hasattr(obj, prop):
                             row = col.row()
                             row.template_icon_view(scn, prop, show_labels=False, scale=10.0)

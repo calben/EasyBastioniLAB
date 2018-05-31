@@ -20,6 +20,9 @@ import time
 import json
 import operator
 
+# wellvr imports
+import copy
+
 
 class HumanModifier:
     """
@@ -191,8 +194,8 @@ class Humanoid:
         self.lib_filepath = algorithms.get_blendlibrary_path()
         if self.characters_config:
             self.humanoid_types = self.build_items_list("character_list")
-            self.template_types = self.build_items_list("templates_list")            
-            
+            self.template_types = self.build_items_list("templates_list")
+
     def is_muscle_rig_available(self, character_identifier):
         if self.characters_config[character_identifier]["vertexgroup_muscle_file"] != "":
             return True
@@ -235,7 +238,7 @@ class Humanoid:
 
         self.phenotypes_path = os.path.join(self.data_path, "phenotypes",self.phenotype_data_folder)
         self.presets_path = os.path.join(self.data_path, "presets",self.presets_data_folder)
-        self.restposes_path = os.path.join(self.data_path,"poses","rest_poses")        
+        self.restposes_path = os.path.join(self.data_path,"poses","rest_poses")
 
         self.transformations_data_path = os.path.join(self.data_path,"transformations",self.transformation_filename)
 
@@ -272,7 +275,7 @@ class Humanoid:
         self.load_transformation_database()
         self.add_corrective_smooth_modifier()
         self.add_subdivision_modifier()
-        self.add_displacement_modifier()        
+        self.add_displacement_modifier()
         self.has_data = True
 
     def add_subdivision_modifier(self):
@@ -321,10 +324,11 @@ class Humanoid:
         return sorted(categories)
 
     def get_categories_shortlist(self):
-        categories_shortlist = self.categories
+        categories_shortlist = copy.deepcopy(self.categories)
         categories_to_remove = ['Abdomen', 'Armpit', 'Arms', 'Body', 'Chest', 'Elbows', 'Expressions', 'Fantasy', 'Feet', 'Hands', 'Jaws', 'Legs', 'Neck', 'Pelvis', 'Shoulders', 'Stomach', 'Torso', 'Waist', 'Wrists']
         for category_to_remove in categories_to_remove:
-            categories_shortlist.pop(category_to_remove, None)
+            if (category_to_remove in categories_shortlist):
+                del categories_shortlist[category_to_remove]
         categories = categories_shortlist.values()
         return sorted(categories)
 
@@ -1231,19 +1235,3 @@ class Humanoid:
         obj = self.get_object()
         parameters = {"show_viewport":True,"invert_vertex_group": True, "vertex_group":"head"}
         algorithms.new_modifier(obj, self.corrective_modifier_name, 'CORRECTIVE_SMOOTH', parameters)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
