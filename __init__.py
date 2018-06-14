@@ -913,7 +913,9 @@ class GenericMorphButtonPlus(bpy.types.Operator):
         # print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
+        
 class ExportToUnrealButton(bpy.types.Operator):
+
     bl_idname = "wellvr.export_to_unreal"
     bl_label = "Export To Unreal"
 
@@ -932,6 +934,24 @@ class ExportToUnrealButton(bpy.types.Operator):
         self.report({'INFO'}, "Complete")
         global mblab_humanoid
         global gui_status
+
+        # PROXY_FIT_ALL_ITEMS
+
+        scn = bpy.context.scene
+        offset = scn.mblab_proxy_offset/1000
+        threshold = scn.mblab_proxy_threshold/1000
+
+        gender = algorithms.get_selected_gender().lower()
+        for asset in mblab_proxy.assets_models:
+            asset = asset[0]
+            print("checking if", gender, "in", asset)
+            if "_" + gender in asset.lower():
+                print("loading", asset)
+                mblab_proxy.load_asset(asset)
+                scn.mblab_proxy_name = asset
+                mblab_proxy.fit_proxy_object(offset, threshold, False, True)
+
+        # return { "FINISHED" }
 
         # cmd = 'echo $HOME'
         # print (subprocess.check_output(cmd, shell=True))
@@ -1024,24 +1044,18 @@ class ExportToUnrealButton(bpy.types.Operator):
         for object in bpy.data.objects:
             bpy.ops.object.select_all(action='DESELECT')
             object.select = True
-            print(object.name)
             if (object.find_armature() != None):
                 object.find_armature().select = True
             export_name = object.name
             if ("MBlab_bd" in object.name):
                 export_name = filename
-                fn = os.path.join(basedir, export_name)
-                print("exporting",object.name)
-                print({o.name : o.select for o in bpy.data.objects})
-                bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
-                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
-            elif ("Armature" in object.name):
-                fn = os.path.join(basedir, export_name)
-                print("exporting",object.name)
-                print({o.name : o.select for o in bpy.data.objects})
-                bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
-                # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
-                print("written:", fn)
+            fn = os.path.join(basedir, export_name)
+            print("exporting",object.name)
+            print({o.name : o.select for o in bpy.data.objects})
+            bpy.ops.export_scene.fbx(filepath=fn + ".fbx", check_existing=True, axis_up='Y', axis_forward='-Z', filter_glob="*.fbx", version='BIN7400', use_selection=True, global_scale=1.0, bake_space_transform=False, object_types={'MESH', 'ARMATURE'}, use_mesh_modifiers=False, mesh_smooth_type='OFF', use_mesh_edges=False, use_tspace=False, use_custom_props=False, add_leaf_bones=False, primary_bone_axis='Y', secondary_bone_axis='X', use_armature_deform_only=False, bake_anim=True, bake_anim_use_all_bones=True, bake_anim_use_nla_strips=True, bake_anim_use_all_actions=True, bake_anim_step=1.0, bake_anim_simplify_factor=1.0, use_anim=True, use_anim_action_all=True, use_default_take=True, use_anim_optimize=True, anim_optimize_precision=6.0, path_mode='AUTO', embed_textures=False, batch_mode='OFF', use_batch_own_dir=True, use_metadata=True)
+            # bpy.ops.export_scene.fbx(filepath=fn + ".fbx", global_scale=1.0, object_types={'ARMATURE', 'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
+
+        print("written:", fn)
 
         # Set scene back to normal
         bpy.ops.object.select_all(action='SELECT')
@@ -1063,11 +1077,12 @@ class ExportToUnrealButton(bpy.types.Operator):
             "-c", filename,
             "-d", "S:/WellVrRoot/CharacterCreator/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/",
             "-e", "This is not bob.",
-            "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseBastioniCharacter/BaseBastioniCharacter_Skeleton.BaseBastioniCharacter_Skeleton'",
+            "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseCharacter_Skeleton.BaseCharacter_Skeleton'",
             "-o", "S:/WellVrRoot/CharacterPackages/",
             "-b"], shell=True)
         sys.exit(0)
         return {'FINISHED'}
+
 
 class ExportCharacterPresetsButton(bpy.types.Operator):
     bl_idname = "wellvr.export_character_presets_button"
