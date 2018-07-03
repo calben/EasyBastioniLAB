@@ -671,8 +671,12 @@ def save_metadata_json(filepath):
     obj = mblab_humanoid.get_object()
     char_ethnic_group = obj.ethnic
     char_body_preset = obj.preset
+    selected_eye_preview_name = bpy.context.scene.eye_previews
+    selected_eye_preview_name = selected_eye_preview_name[:(len(selected_eye_preview_name) - 4)]
+    selected_skin_preview_name = bpy.context.scene.skin_previews
+    selected_skin_preview_name = selected_skin_preview_name[:(len(selected_skin_preview_name) - 4)]
 
-    char_data = {"manuellab_vers": mblab_humanoid.lab_vers, "gender": char_gender, "ethnic_group": char_ethnic_group, "body_preset": char_body_preset}
+    char_data = {"manuellab_vers": mblab_humanoid.lab_vers, "gender": char_gender, "ethnic_group": char_ethnic_group, "body_preset": char_body_preset, "eye_color": selected_eye_preview_name, "skin_color": selected_skin_preview_name}
 
     output_file = open(new_filepath, 'w')
     json.dump(char_data, output_file)
@@ -913,7 +917,7 @@ class GenericMorphButtonPlus(bpy.types.Operator):
         # print("Got", mblab_humanoid.character_data[prop])
         return {'FINISHED'}
 
-        
+
 class ExportToUnrealButton(bpy.types.Operator):
 
     bl_idname = "wellvr.export_to_unreal"
