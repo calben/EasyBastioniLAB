@@ -540,16 +540,16 @@ def generate_skin_previews():
 
 def skin_previews_update(self, context):
     global mblab_humanoid
-    # place skin complexion and hue in the .png's name!
+    # place skin value and hue in the .png's name!
     selected_skin_preview_name = bpy.context.scene.skin_previews
     selected_skin_preview_name = selected_skin_preview_name[:(len(selected_skin_preview_name) - 4)]
     split_skin_preview_name = selected_skin_preview_name.split('_')
     for split_value in split_skin_preview_name:
-        if 'complexion' in split_value:
-            split_complexion = split_value.split('-')
-            complexion_value = float(split_complexion[1])
-            # complexion_value /= 1000
-            mblab_humanoid.character_material_properties['skin_complexion'] = complexion_value
+        if 'value' in split_value:
+            split_skin_value = split_value.split('-')
+            skin_value = float(split_skin_value[1])
+            # skin_value /= 1000
+            mblab_humanoid.character_material_properties['skin_value'] = skin_value
         if 'hue' in split_value:
             split_hue = split_value.split('-')
             hue_value = float(split_hue[1])
@@ -559,7 +559,7 @@ def skin_previews_update(self, context):
     mblab_humanoid.material_realtime_activated = False
     obj = mblab_humanoid.get_object()
     for material_data_prop, value in mblab_humanoid.character_material_properties.items():
-        if 'skin_hue' in material_data_prop or 'skin_complexion' in material_data_prop:
+        if 'skin_hue' in material_data_prop or 'skin_value' in material_data_prop:
             if hasattr(obj, material_data_prop):
                 setattr(obj, material_data_prop, value)
             else:
@@ -596,11 +596,16 @@ def eye_previews_update(self, context):
             hue_value = float(split_hue[1])
             # hue_value /= 1000
             mblab_humanoid.character_material_properties['eyes_hue'] = hue_value
+        if 'value' in split_value:
+            split_eye_value = split_value.split('-')
+            eye_value = float(split_eye_value[1])
+            # hue_value /= 1000
+            mblab_humanoid.character_material_properties['eyes_value'] = eye_value
 
     mblab_humanoid.material_realtime_activated = False
     obj = mblab_humanoid.get_object()
     for material_data_prop, value in mblab_humanoid.character_material_properties.items():
-        if 'eyes_hue' in material_data_prop:
+        if 'eyes_hue' in material_data_prop or 'eyes_value' in material_data_prop:
             if hasattr(obj, material_data_prop):
                 setattr(obj, material_data_prop, value)
             else:
@@ -1376,7 +1381,7 @@ class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
             camLocations['Skin'] = (0.151203, -1.42162, 1.43392)
             camRotations['Skin'] = (86.5, 0, 5.94)
             # Skin dicts
-            skin_complexions = [0.1, 0.001, 0.650]
+            skin_values = [0.1, 0.5, 1.0]
             skin_hues = [0.5, 0.51, 0.485]
             image_count = 1
             bpy.context.scene.render.resolution_x = 1024
@@ -1386,14 +1391,14 @@ class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
                 camObj.location = value
                 x,y,z = camRotations[key]
                 camObj.rotation_euler = (radians(x), radians(y), radians(z))
-                for complexion_value in skin_complexions:
+                for skin_value in skin_values:
                     for hue_value in skin_hues:
-                        mblab_humanoid.character_material_properties['skin_complexion'] = complexion_value
+                        mblab_humanoid.character_material_properties['skin_value'] = skin_value
                         mblab_humanoid.character_material_properties['skin_hue'] = hue_value
                         mblab_humanoid.material_realtime_activated = False
                         obj = mblab_humanoid.get_object()
                         for material_data_prop, value in mblab_humanoid.character_material_properties.items():
-                            if 'skin_hue' in material_data_prop or 'skin_complexion' in material_data_prop:
+                            if 'skin_hue' in material_data_prop or 'skin_value' in material_data_prop:
                                 if hasattr(obj, material_data_prop):
                                     setattr(obj, material_data_prop, value)
                                 else:
@@ -1402,7 +1407,7 @@ class TakeSkinPreviewPicturesWithCamera(bpy.types.Operator):
                         mblab_humanoid.material_realtime_activated = True
                         mblab_humanoid.update_materials()
 
-                        skin_path = str(str(image_count)+"_skin_preview_complexion-"+str(complexion_value)+"_hue-"+str(hue_value)+".png")
+                        skin_path = str(str(image_count)+"_skin_preview_value-"+str(skin_value)+"_hue-"+str(hue_value)+".png")
                         file = os.path.join(os.path.dirname(__file__), "images/skin_previews", skin_path)
                         print ("printing to " + file)
                         bpy.context.scene.render.filepath = file
@@ -1437,35 +1442,41 @@ class TakeEyePreviewPicturesWithCamera(bpy.types.Operator):
             camLocations['Eyes'] = (0.047876, -0.309219, 1.5633)
             camRotations['Eyes'] = (91.8, 0, 12.6)
             # Eye dicts
-            eye_hues = [0.5, 0.55, 0.45, 0.6, 0.4, 0.65, 0.35]
+            eye_hues = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+            eye_values = [0.4, 0.6]
             image_count = 1
             bpy.context.scene.render.resolution_x = 1024
             bpy.context.scene.render.resolution_y = 1024
+
+            mblab_humanoid.character_material_properties['eyes_saturation'] = 1.0
+
             for key, value in camLocations.items():
                 print(key, value, camRotations[key])
                 camObj.location = value
                 x,y,z = camRotations[key]
                 camObj.rotation_euler = (radians(x), radians(y), radians(z))
                 for hue_value in eye_hues:
-                    mblab_humanoid.character_material_properties['eyes_hue'] = hue_value
-                    mblab_humanoid.material_realtime_activated = False
-                    obj = mblab_humanoid.get_object()
-                    for material_data_prop, value in mblab_humanoid.character_material_properties.items():
-                        if 'eyes_hue' in material_data_prop:
-                            if hasattr(obj, material_data_prop):
-                                setattr(obj, material_data_prop, value)
-                            else:
-                                print("material {0}  not found".format(material_data_prop))
+                    for eye_value in eye_values:
+                        mblab_humanoid.character_material_properties['eyes_hue'] = hue_value
+                        mblab_humanoid.character_material_properties['eyes_value'] = eye_value
+                        mblab_humanoid.material_realtime_activated = False
+                        obj = mblab_humanoid.get_object()
+                        for material_data_prop, value in mblab_humanoid.character_material_properties.items():
+                            if 'eyes_hue' in material_data_prop or 'eyes_value' in material_data_prop:
+                                if hasattr(obj, material_data_prop):
+                                    setattr(obj, material_data_prop, value)
+                                else:
+                                    print("material {0}  not found".format(material_data_prop))
 
-                    mblab_humanoid.material_realtime_activated = True
-                    mblab_humanoid.update_materials()
+                        mblab_humanoid.material_realtime_activated = True
+                        mblab_humanoid.update_materials()
 
-                    eye_path = str(str(image_count)+"_eye_preview_hue-"+str(hue_value)+".png")
-                    file = os.path.join(os.path.dirname(__file__), "images/eye_previews", eye_path)
-                    print ("printing to " + file)
-                    bpy.context.scene.render.filepath = file
-                    bpy.ops.render.render( write_still=True )
-                    image_count += 1;
+                        eye_path = str(str(image_count)+"_eye_preview_value-"+str(eye_value)+"_hue-"+str(hue_value)+".png")
+                        file = os.path.join(os.path.dirname(__file__), "images/eye_previews", eye_path)
+                        print ("printing to " + file)
+                        bpy.context.scene.render.filepath = file
+                        bpy.ops.render.render( write_still=True )
+                        image_count += 1;
 
         return {'FINISHED'}
 
@@ -3106,7 +3117,7 @@ class VIEW3D_PT_tools_ManuelbastioniLAB(bpy.types.Panel):
 
                 # self.layout.operator("wellvr.take_pictures_with_camera_button", text="Take Morph Target Pictures")
                 # self.layout.operator("wellvr.take_skin_preview_pictures_with_camera_button", text="Take Skin Preview Pics")
-                # self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
+                self.layout.operator("wellvr.take_eye_preview_pictures_with_camera_button", text="Take Eye Preview Pics")
                 # self.layout.operator('wellvr.return_to_init_screen')
                 # self.layout.operator('wellvr.switch_view_button',icon='CAMERA_DATA')
                 # self.layout.operator('wellvr.export_to_unreal', icon='FILE_TICK')
