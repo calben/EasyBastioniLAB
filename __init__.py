@@ -3172,56 +3172,20 @@ def register():
     )
 
     ### Generate lists for morph targets previews ###
+    image_loader_location = os.path.join(os.path.dirname(__file__), "images/image_loader.json")
+    with open(image_loader_location) as f:
+        data = json.load(f)
+
+    for category in data:
+        for name in data[category]:
+            pcoll_morphs = bpy.utils.previews.new()
+            pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), category)
+            preview_collections[name] = pcoll_morphs
+            bpy.types.Scene.Cheeks_CreaseExt = EnumProperty(
+                items=generate_morph_previews(name),
+                update=morph_previews_update_closure(name)
+            )
     # Generate previews for Cheeks
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_CreaseExt"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_CreaseExt = EnumProperty(
-        items=generate_morph_previews("Cheeks_CreaseExt"),
-        update=morph_previews_update_closure("Cheeks_CreaseExt")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_InfraVolume"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_InfraVolume = EnumProperty(
-        items=generate_morph_previews("Cheeks_InfraVolume"),
-        update=morph_previews_update_closure("Cheeks_InfraVolume")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_Mass"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_Mass = EnumProperty(
-        items=generate_morph_previews("Cheeks_Mass"),
-        update=morph_previews_update_closure("Cheeks_Mass")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_SideCrease"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_SideCrease = EnumProperty(
-        items=generate_morph_previews("Cheeks_SideCrease"),
-        update=morph_previews_update_closure("Cheeks_SideCrease")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_Tone"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_Tone = EnumProperty(
-        items=generate_morph_previews("Cheeks_Tone"),
-        update=morph_previews_update_closure("Cheeks_Tone")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_Zygom"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_Zygom = EnumProperty(
-        items=generate_morph_previews("Cheeks_Zygom"),
-        update=morph_previews_update_closure("Cheeks_Zygom")
-    )
-    pcoll_morphs = bpy.utils.previews.new()
-    pcoll_morphs.images_location = os.path.join(os.path.dirname(__file__), "images/morph_previews")
-    preview_collections["Cheeks_ZygomPosZ"] = pcoll_morphs
-    bpy.types.Scene.Cheeks_ZygomPosZ = EnumProperty(
-        items=generate_morph_previews("Cheeks_ZygomPosZ"),
-        update=morph_previews_update_closure("Cheeks_ZygomPosZ")
-    )
 
     # Generate previews for Chin
     pcoll_morphs = bpy.utils.previews.new()
