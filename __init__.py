@@ -676,7 +676,7 @@ def save_metadata_json(filepath):
     selected_skin_preview_name = bpy.context.scene.skin_previews
     selected_skin_preview_name = selected_skin_preview_name[:(len(selected_skin_preview_name) - 4)]
 
-    char_data = {"manuellab_vers": mblab_humanoid.lab_vers, "gender": char_gender, "ethnic_group": char_ethnic_group, "body_preset": char_body_preset, "eye_color": selected_eye_preview_name, "skin_color": selected_skin_preview_name}
+    char_data = {"manuellab_vers": mblab_humanoid.lab_vers, "gender": char_gender, "ethnic_group": char_ethnic_group, "body_preset": char_body_preset, "eye_color": selected_eye_preview_name, "eye_hue": mblab_humanoid.character_material_properties['eyes_hue'], "skin_hue": mblab_humanoid.character_material_properties['skin_hue'], "skin_color": selected_skin_preview_name}
 
     output_file = open(new_filepath, 'w')
     json.dump(char_data, output_file)
@@ -1077,14 +1077,14 @@ class ExportToUnrealButton(bpy.types.Operator):
         call(["S:/WellVrRoot/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe",
             "-p", "S:/WellVrRoot/UnrealModPackagerProject/",
             "-r", "ModPackager.uproject",
-            "-u", "D:/EpicGamesLibrary/UE_4.19/",
+            "-u", "C:/Program Files/Epic Games/UE_4.19",
             "-c", filename,
             "-d", "S:/WellVrRoot/CharacterCreator/blender-2.79-windows64/2.79/scripts/addons/easy_bastioni_lab/exports/",
             "-e", "This is not bob.",
             "-s", "Skeleton'/BastioniLABCharacters/Meshes/BaseCharacter_Skeleton.BaseCharacter_Skeleton'",
             "-o", "S:/WellVrRoot/CharacterPackages/",
             "-b"], shell=True)
-        sys.exit(0)
+#        sys.exit(0)
         return {'FINISHED'}
 
 
@@ -1460,7 +1460,7 @@ class TakeEyePreviewPicturesWithCamera(bpy.types.Operator):
                     mblab_humanoid.material_realtime_activated = True
                     mblab_humanoid.update_materials()
 
-                    eye_path = str(str(image_count)+"_eye_preview_hue-"+str(hue_value)+".png")
+                    eye_path = str(str(image_count)+"_1_preview_hue-"+str(hue_value)+".png")
                     file = os.path.join(os.path.dirname(__file__), "images/eye_previews", eye_path)
                     print ("printing to " + file)
                     bpy.context.scene.render.filepath = file
@@ -2634,7 +2634,7 @@ class StartSession(bpy.types.Operator):
 
     def draw(self, context):
         row = self.layout
-        row.label("This will take a few seconds...")
+        row.label("This will take a few seconds.\nPlease click OK to confirm.")
 
     def execute(self, context):
         self.report({'INFO'}, "Done")
