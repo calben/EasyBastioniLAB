@@ -1080,7 +1080,7 @@ class ExportToUnrealButton(bpy.types.Operator):
         #     "-s", "\"Skeleton'/BastioniLABCharacters/Meshes/Male_Caucasian_Athletic_Skeleton.Male_Caucasian_Athletic_Skeleton'",
         #     "-b"])
         call(["S:/WellVrRoot/CharacterPluginGenerator/CreatePluginFromTemplate.Automation/bin/Debug/CreatePluginFromTemplate.Automation.exe",
-            "-p", "S:/WellVrRoot/UnrealModPackagerProject/",
+            "-p", "S:/WellVrRoot/UnrealModPackagerProject419/",
             "-r", "ModPackager.uproject",
             "-u", "C:/Program Files/Epic Games/UE_4.19",
             "-c", filename,
